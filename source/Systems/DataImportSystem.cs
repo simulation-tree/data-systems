@@ -19,16 +19,16 @@ namespace Data.Systems
         {
             Subscribe<DataUpdate>(Update);
             fileQuery = new(world);
-            embeddedResources = new();
+            embeddedResources = UnmanagedList<EmbeddedResource>.Create();
             Dictionary<int, Assembly> sourceAssemblies = [];
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 foreach (string resourcePath in assembly.GetManifestResourceNames())
                 {
-                    int resourcePathHash = Djb2Hash.GetDjb2HashCode(resourcePath);
+                    int resourcePathHash = Djb2Hash.Get(resourcePath);
                     if (sourceAssemblies.TryGetValue(resourcePathHash, out Assembly? existing))
                     {
-                        Debug.WriteLine($"Duplicate resource with same addressa at `{resourcePath}` from `{assembly.GetName()}` was ignored, data from `{existing.GetName()}` is used instead");
+                        Debug.WriteLine($"Duplicate resource with same address at `{resourcePath}` from `{assembly.GetName()}` was ignored, data from `{existing.GetName()}` is used instead");
                     }
                     else
                     {
@@ -67,7 +67,7 @@ namespace Data.Systems
         /// </summary>
         private void Update()
         {
-            foreach (EntityID entity in world.GetAll<IsDataRequest>())
+            foreach (eint entity in world.GetAll<IsDataRequest>())
             {
                 ref IsDataRequest import = ref world.GetComponentRef<IsDataRequest>(entity);
                 if (import.changed)
@@ -83,18 +83,18 @@ namespace Data.Systems
             }
         }
 
-        private bool TryImport(World world, EntityID entity, FixedString address)
+        private bool TryImport(World world, eint entity, FixedString address)
         {
             Span<char> buffer = stackalloc char[address.Length];
             address.CopyTo(buffer);
             if (TryImport(buffer, out BinaryReader reader))
             {
-                if (!world.ContainsCollection<byte>(entity))
+                if (!world.ContainsList<byte>(entity))
                 {
-                    world.CreateCollection<byte>(entity);
+                    world.CreateList<byte>(entity);
                 }
 
-                UnmanagedList<byte> data = world.GetCollection<byte>(entity);
+                UnmanagedList<byte> data = world.GetList<byte>(entity);
                 data.Clear();
                 data.AddRange(reader.AsSpan());
                 reader.Dispose();
@@ -131,9 +131,9 @@ namespace Data.Systems
             foreach (Query<IsData>.Result result in fileQuery)
             {
                 IsData file = result.Component1;
-                if (file.name.Equals(address))
+                if (file.address.Equals(address))
                 {
-                    UnmanagedList<byte> fileData = world.GetCollection<byte>(result.entity);
+                    UnmanagedList<byte> fileData = world.GetList<byte>(result.entity);
                     newReader = new(fileData.AsSpan());
                     return true;
                 }
