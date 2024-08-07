@@ -20,25 +20,33 @@ namespace Data.Systems
             Subscribe<DataUpdate>(Update);
             fileQuery = new(world);
             embeddedResources = UnmanagedList<EmbeddedResource>.Create();
+            using UnmanagedList<FixedString> ignoreList = new();
+            ignoreList.Add("ILLink.Substitutions.xml");
             Dictionary<int, Assembly> sourceAssemblies = [];
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 foreach (string resourcePath in assembly.GetManifestResourceNames())
                 {
-                    int resourcePathHash = Djb2Hash.Get(resourcePath);
+                    FixedString resourcePathText = new(resourcePath);
+                    int resourcePathHash = resourcePathText.GetHashCode();
+                    if (ignoreList.Contains(resourcePathText))
+                    {
+                        continue;
+                    }
+
                     if (sourceAssemblies.TryGetValue(resourcePathHash, out Assembly? existing))
                     {
                         Debug.WriteLine($"Duplicate resource with same address at `{resourcePath}` from `{assembly.GetName()}` was ignored, data from `{existing.GetName()}` is used instead");
                     }
                     else
                     {
-                        System.IO.Stream stream = assembly.GetManifestResourceStream(resourcePath) ?? throw new Exception($"Resource `{resourcePath}` from `{assembly.GetName()}` was not found");
+                        System.IO.Stream stream = assembly.GetManifestResourceStream(resourcePath) ?? throw new Exception($"Embedded resource at `{resourcePath}` from `{assembly.GetName()}` couldn't be accessed");
                         stream.Position = 0;
                         BinaryReader reader = new(stream);
                         EmbeddedResource resource = new(reader, resourcePath.AsSpan());
                         embeddedResources.Add(resource);
                         sourceAssemblies.Add(resourcePathHash, assembly);
-                        Debug.WriteLine($"Resource {resourcePath} from {assembly.GetName()} was imported");
+                        Debug.WriteLine($"Registered embedded resource at `{resourcePath}` from `{assembly.GetName()}`");
                     }
                 }
             }
@@ -119,7 +127,7 @@ namespace Data.Systems
             for (uint i = 0; i < embeddedResources.Count; i++)
             {
                 EmbeddedResource resource = embeddedResources[i];
-                if (resource.Equals(address))
+                if (Matches(address, resource.RawPath))
                 {
                     newReader = new(resource.reader);
                     return true;
@@ -131,7 +139,7 @@ namespace Data.Systems
             foreach (Query<IsData>.Result result in fileQuery)
             {
                 IsData file = result.Component1;
-                if (file.address.Equals(address))
+                if (Matches(address, file.address))
                 {
                     UnmanagedList<byte> fileData = world.GetList<byte>(result.entity);
                     newReader = new(fileData.AsSpan());
@@ -149,6 +157,44 @@ namespace Data.Systems
 
             using System.IO.FileStream fileStream = new(addressString, System.IO.FileMode.Open, System.IO.FileAccess.Read);
             newReader = new(fileStream);
+            return true;
+        }
+
+        public static bool Matches(ReadOnlySpan<char> address, FixedString path)
+        {
+            Span<char> pathBuffer = stackalloc char[path.Length];
+            path.CopyTo(pathBuffer);
+            return Matches(address, pathBuffer);
+        }
+
+        //todo: accept * tokens
+        public static bool Matches(ReadOnlySpan<char> address, ReadOnlySpan<char> path)
+        {
+            if (address.Length != path.Length)
+            {
+                return false;
+            }
+
+            int extensionIndex = path.LastIndexOf('.');
+            for (int i = 0; i < address.Length; i++)
+            {
+                char c = path[i];
+                char valueC = address[i];
+                if (c != valueC)
+                {
+                    if (valueC == ' ' && (c == '_' || c == '.'))
+                    {
+                        continue;
+                    }
+                    else if (valueC == '/' && c == '.' && i != extensionIndex)
+                    {
+                        continue;
+                    }
+
+                    return false;
+                }
+            }
+
             return true;
         }
     }

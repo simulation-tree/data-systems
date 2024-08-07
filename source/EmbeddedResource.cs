@@ -4,6 +4,7 @@ using Unmanaged.Collections;
 
 namespace Data
 {
+    //todo: this looks like it represents generic addressable data, perhaps its name should be updated and moved to `data`
     public readonly struct EmbeddedResource : IDisposable
     {
         public readonly BinaryReader reader;
@@ -26,36 +27,6 @@ namespace Data
         {
             path.Dispose();
             reader.Dispose();
-        }
-
-        public readonly bool Equals(ReadOnlySpan<char> value)
-        {
-            if (value.Length != path.Length)
-            {
-                return false;
-            }
-
-            int extensionIndex = RawPath.LastIndexOf('.');
-            for (uint i = 0; i < value.Length; i++)
-            {
-                char c = path[i];
-                char valueC = value[(int)i];
-                if (c != valueC)
-                {
-                    if (valueC == ' ' && (c == '_' || c == '.'))
-                    {
-                        continue;
-                    }
-                    else if (valueC == '/' && c == '.' && i != extensionIndex)
-                    {
-                        continue;
-                    }
-
-                    return false;
-                }
-            }
-
-            return true;
         }
     }
 }
