@@ -135,7 +135,7 @@ namespace Data.Systems
             }
 
             //search world
-            fileQuery.Fill();
+            fileQuery.Update();
             foreach (Query<IsData>.Result result in fileQuery)
             {
                 IsData file = result.Component1;
