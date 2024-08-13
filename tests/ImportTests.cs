@@ -30,7 +30,7 @@ namespace Data.Tests
             Assert.That(white, Is.EqualTo(new Color(1, 1, 1)));
 
             Color doorhinge = new(0, 1f, 1f);
-            Assert.That(doorhinge.Hue, Is.EqualTo(0.5f));
+            Assert.That(doorhinge.H, Is.EqualTo(0.5f));
         }
 
         [Test]
