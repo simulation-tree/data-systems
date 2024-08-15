@@ -3,6 +3,7 @@ using Data.Events;
 using Simulation;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Unmanaged;
 using Unmanaged.Collections;
@@ -15,6 +16,7 @@ namespace Data.Systems
         private UnmanagedList<BinaryReader> embeddedResources;
         private UnmanagedList<Address> embeddedAddresses;
 
+        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         public DataImportSystem(World world) : base(world)
         {
             Subscribe<DataUpdate>(Update);
@@ -38,6 +40,7 @@ namespace Data.Systems
             base.Dispose();
         }
 
+        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         private void Update(DataUpdate e)
         {
             Update();
@@ -47,6 +50,7 @@ namespace Data.Systems
         /// Iterates over all entities with the <see cref="IsDataRequest"/> component and attempts
         /// to import the data at its address.
         /// </summary>
+        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         private void Update()
         {
             foreach (eint entity in world.GetAll<IsDataRequest>())
@@ -63,14 +67,42 @@ namespace Data.Systems
             }
         }
 
+        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         private void FindAllEmbeddedResources()
         {
+            //todo: efficiency: skip loading all embedded resources, its very taxing on startup time
             embeddedResources = new();
             embeddedAddresses = new();
             Dictionary<int, Assembly> sourceAssemblies = [];
+            Dictionary<string, Assembly> allAssemblies = new();
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 string assemblyName = assembly.GetName().Name ?? string.Empty;
+                allAssemblies.TryAdd(assemblyName, assembly);
+                foreach (AssemblyName referencedAssemblyName in assembly.GetReferencedAssemblies())
+                {
+                    assemblyName = referencedAssemblyName.Name ?? string.Empty;
+                    if (allAssemblies.ContainsKey(assemblyName))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        Assembly referencedAssembly = Assembly.Load(referencedAssemblyName);
+                        allAssemblies.Add(assemblyName, referencedAssembly);
+                    }
+                    catch (Exception)
+                    {
+                        //ignore
+                    }
+                }
+            }
+
+            foreach (KeyValuePair<string, Assembly> pair in allAssemblies)
+            {
+                Assembly assembly = pair.Value;
+                string assemblyName = pair.Key;
                 string[] resources = assembly.GetManifestResourceNames();
                 foreach (string resourcePath in resources)
                 {
@@ -110,6 +142,7 @@ namespace Data.Systems
             }
         }
 
+        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         private bool TryImport(World world, eint entity, FixedString address)
         {
             Span<char> buffer = stackalloc char[address.Length];
@@ -130,6 +163,7 @@ namespace Data.Systems
             else return false;
         }
 
+        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         public bool TryImport(FixedString address, out BinaryReader newReader)
         {
             Span<char> buffer = stackalloc char[address.Length];
@@ -140,6 +174,7 @@ namespace Data.Systems
         /// <summary>
         /// Attempts to import data from the given address into a new reader.
         /// </summary>
+        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         public bool TryImport(ReadOnlySpan<char> address, out BinaryReader newReader)
         {
             if (embeddedResources == default)

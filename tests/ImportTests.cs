@@ -86,7 +86,7 @@ namespace Data.Tests
         public void UseDataReference()
         {
             using World world = new();
-            DataRequest<DefaultMaterial> defaultMaterial = new(world);
+            DataRequest defaultMaterial = new(world, Address.Get<DefaultMaterial>());
             Assert.That(defaultMaterial.GetAddress().ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
         }
 
