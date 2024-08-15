@@ -11,6 +11,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="TestData.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\TestData.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -25,7 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\data\Data.csproj" />
+    <ProjectReference Include="..\..\data\source\Data.csproj" />
     <ProjectReference Include="..\..\simulation\source\Simulation.csproj" />
     <ProjectReference Include="..\..\unmanaged\source\Unmanaged.csproj" />
     <ProjectReference Include="..\source\Data Systems.csproj" />

@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\data\Data.csproj" />
+    <ProjectReference Include="..\..\data\source\Data.csproj" />
     <ProjectReference Include="..\..\simulation\source\Simulation.csproj" />
   </ItemGroup>
 

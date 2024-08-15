@@ -1,9 +1,8 @@
-﻿using Simulation;
-using Data.Components;
+﻿using Data.Components;
 using Data.Events;
+using Simulation;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Reflection;
 using Unmanaged;
 using Unmanaged.Collections;
@@ -13,53 +12,28 @@ namespace Data.Systems
     public class DataImportSystem : SystemBase
     {
         private readonly Query<IsData> fileQuery;
-        private readonly UnmanagedList<EmbeddedResource> embeddedResources;
+        private UnmanagedList<BinaryReader> embeddedResources;
+        private UnmanagedList<Address> embeddedAddresses;
 
         public DataImportSystem(World world) : base(world)
         {
             Subscribe<DataUpdate>(Update);
             fileQuery = new(world);
-            embeddedResources = UnmanagedList<EmbeddedResource>.Create();
-            using UnmanagedList<FixedString> ignoreList = new();
-            ignoreList.Add("ILLink.Substitutions.xml");
-            Dictionary<int, Assembly> sourceAssemblies = [];
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                foreach (string resourcePath in assembly.GetManifestResourceNames())
-                {
-                    FixedString resourcePathText = new(resourcePath);
-                    int resourcePathHash = resourcePathText.GetHashCode();
-                    if (ignoreList.Contains(resourcePathText))
-                    {
-                        continue;
-                    }
-
-                    if (sourceAssemblies.TryGetValue(resourcePathHash, out Assembly? existing))
-                    {
-                        Debug.WriteLine($"Duplicate resource with same address at `{resourcePath}` from `{assembly.GetName()}` was ignored, data from `{existing.GetName()}` is used instead");
-                    }
-                    else
-                    {
-                        System.IO.Stream stream = assembly.GetManifestResourceStream(resourcePath) ?? throw new Exception($"Embedded resource at `{resourcePath}` from `{assembly.GetName()}` couldn't be accessed");
-                        stream.Position = 0;
-                        BinaryReader reader = new(stream);
-                        EmbeddedResource resource = new(reader, resourcePath.AsSpan());
-                        embeddedResources.Add(resource);
-                        sourceAssemblies.Add(resourcePathHash, assembly);
-                        Debug.WriteLine($"Registered embedded resource at `{resourcePath}` from `{assembly.GetName()}`");
-                    }
-                }
-            }
         }
 
         public override void Dispose()
         {
-            foreach (EmbeddedResource resource in embeddedResources)
+            if (embeddedResources != default)
             {
-                resource.Dispose();
+                foreach (BinaryReader resource in embeddedResources)
+                {
+                    resource.Dispose();
+                }
+
+                embeddedResources.Dispose();
+                embeddedAddresses.Dispose();
             }
 
-            embeddedResources.Dispose();
             fileQuery.Dispose();
             base.Dispose();
         }
@@ -83,10 +57,55 @@ namespace Data.Systems
                     import.changed = false;
                     if (!TryImport(world, entity, import.address))
                     {
-                        throw new NullReferenceException($"No data found to import from {import.address}");
+                        throw new RequestedDataNotFoundException($"Could not find data to import from `{import.address}`");
+                    }
+                }
+            }
+        }
+
+        private void FindAllEmbeddedResources()
+        {
+            embeddedResources = new();
+            embeddedAddresses = new();
+            Dictionary<int, Assembly> sourceAssemblies = [];
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                string assemblyName = assembly.GetName().Name ?? string.Empty;
+                string[] resources = assembly.GetManifestResourceNames();
+                foreach (string resourcePath in resources)
+                {
+                    if (resourcePath.StartsWith("ILLink"))
+                    {
+                        continue;
                     }
 
-                    Debug.WriteLine($"Data imported from {import.address} onto {entity}");
+                    if (resourcePath.StartsWith("Microsoft.VisualStudio.TestPlatform"))
+                    {
+                        continue;
+                    }
+
+                    //ignore FxResources
+                    if (resourcePath.StartsWith("FxResources"))
+                    {
+                        continue;
+                    }
+
+                    FixedString resourcePathText = new(resourcePath);
+                    int resourcePathHash = resourcePathText.GetHashCode();
+                    if (sourceAssemblies.TryGetValue(resourcePathHash, out Assembly? existing))
+                    {
+                        Console.WriteLine($"Duplicate resource with same address at `{resourcePathText}` from `{assemblyName}` was ignored, data from `{existing.GetName()}` is used instead");
+                    }
+                    else
+                    {
+                        System.IO.Stream stream = assembly.GetManifestResourceStream(resourcePath) ?? throw new Exception("Impossible");
+                        stream.Position = 0;
+                        BinaryReader reader = new(stream);
+                        embeddedResources.Add(reader);
+                        embeddedAddresses.Add(new Address(resourcePathText));
+                        sourceAssemblies.Add(resourcePathHash, assembly);
+                        Console.WriteLine($"Registered embedded resource at `{resourcePathText}` from `{assemblyName}`");
+                    }
                 }
             }
         }
@@ -123,13 +142,18 @@ namespace Data.Systems
         /// </summary>
         public bool TryImport(ReadOnlySpan<char> address, out BinaryReader newReader)
         {
-            //search embedded resources
-            for (uint i = 0; i < embeddedResources.Count; i++)
+            if (embeddedResources == default)
             {
-                EmbeddedResource resource = embeddedResources[i];
-                if (Matches(address, resource.RawPath))
+                FindAllEmbeddedResources();
+            }
+
+            //search embedded resources
+            for (uint i = 0; i < embeddedAddresses.Count; i++)
+            {
+                Address embeddedAddress = embeddedAddresses[i];
+                if (embeddedAddress.Matches(address))
                 {
-                    newReader = new(resource.reader);
+                    newReader = new(embeddedResources[i]);
                     return true;
                 }
             }
@@ -139,7 +163,7 @@ namespace Data.Systems
             foreach (Query<IsData>.Result result in fileQuery)
             {
                 IsData file = result.Component1;
-                if (Matches(address, file.address))
+                if (new Address(file.address).Matches(address))
                 {
                     UnmanagedList<byte> fileData = world.GetList<byte>(result.entity);
                     newReader = new(fileData.AsSpan());
@@ -147,7 +171,7 @@ namespace Data.Systems
                 }
             }
 
-            //search system
+            //search file system
             string addressString = address.ToString();
             if (!System.IO.File.Exists(addressString))
             {
@@ -157,44 +181,6 @@ namespace Data.Systems
 
             using System.IO.FileStream fileStream = new(addressString, System.IO.FileMode.Open, System.IO.FileAccess.Read);
             newReader = new(fileStream);
-            return true;
-        }
-
-        public static bool Matches(ReadOnlySpan<char> address, FixedString path)
-        {
-            Span<char> pathBuffer = stackalloc char[path.Length];
-            path.CopyTo(pathBuffer);
-            return Matches(address, pathBuffer);
-        }
-
-        //todo: accept * tokens
-        public static bool Matches(ReadOnlySpan<char> address, ReadOnlySpan<char> path)
-        {
-            if (address.Length != path.Length)
-            {
-                return false;
-            }
-
-            int extensionIndex = path.LastIndexOf('.');
-            for (int i = 0; i < address.Length; i++)
-            {
-                char c = path[i];
-                char valueC = address[i];
-                if (c != valueC)
-                {
-                    if (valueC == ' ' && (c == '_' || c == '.'))
-                    {
-                        continue;
-                    }
-                    else if (valueC == '/' && c == '.' && i != extensionIndex)
-                    {
-                        continue;
-                    }
-
-                    return false;
-                }
-            }
-
             return true;
         }
     }
