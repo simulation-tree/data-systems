@@ -64,7 +64,7 @@ namespace Data.Tests
             using DataImportSystem dataImports = new(world);
             DataSource file = new(world, "tomato", randomStr);
             DataRequest readTomato = new(world, "tomato");
-            using BinaryReader reader = new(readTomato.GetBytes());
+            using BinaryReader reader = new(readTomato.Bytes);
             Span<char> buffer = stackalloc char[128];
             int length = reader.ReadUTF8Span(buffer);
             ReadOnlySpan<char> text = buffer[..length];
@@ -87,7 +87,7 @@ namespace Data.Tests
         {
             using World world = new();
             DataRequest defaultMaterial = new(world, Address.Get<DefaultMaterial>());
-            Assert.That(defaultMaterial.GetAddress().ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
+            Assert.That(defaultMaterial.Address.ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
         }
 
         public readonly struct DefaultMaterial : IDataReference
@@ -108,8 +108,8 @@ namespace Data.Tests
             DataRequest matRequest = new(world, "*/unlit.mat");
             DataRequest anyShaderRequest = new(world, "*.shader");
 
-            using BinaryReader matReader = new(matRequest.GetBytes());
-            using BinaryReader shaderReader = new(anyShaderRequest.GetBytes());
+            using BinaryReader matReader = new(matRequest.Bytes);
+            using BinaryReader shaderReader = new(anyShaderRequest.Bytes);
             Span<char> buffer = stackalloc char[128];
             int length = matReader.ReadUTF8Span(buffer);
             Assert.That(buffer[..length].ToString(), Is.EqualTo("material"));
@@ -125,7 +125,7 @@ namespace Data.Tests
             using DataImportSystem dataImports = new(world);
 
             DataRequest testData = new(world, "*/Assets/TestData.txt");
-            using BinaryReader reader = new(testData.GetBytes());
+            using BinaryReader reader = new(testData.Bytes);
             Span<char> buffer = stackalloc char[128];
             int length = reader.ReadUTF8Span(buffer);
             Assert.That(buffer[..length].ToString(), Contains.Substring("abacus"));
