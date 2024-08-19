@@ -1,6 +1,9 @@
-﻿using Simulation;
+﻿using Data.Events;
 using Data.Systems;
+using Simulation;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Unmanaged;
 using Unmanaged.Collections;
 
@@ -12,6 +15,12 @@ namespace Data.Tests
         public void CleanUp()
         {
             Allocations.ThrowIfAny();
+        }
+
+        private void Simulate(World world)
+        {
+            world.Submit(new DataUpdate());
+            world.Poll();
         }
 
         [Test]
@@ -33,53 +42,73 @@ namespace Data.Tests
             Assert.That(doorhinge.H, Is.EqualTo(0.5f));
         }
 
-        [Test]
-        public void ReadFromStaticFileSystem()
+        [Test, CancelAfter(1200)]
+        public async Task ReadFromStaticFileSystem(CancellationToken cancellation)
         {
             const string fileName = "test.txt";
             using World world = new();
-            using DataImportSystem system = new(world);
+            using DataImportSystem imports = new(world);
+            Simulate(world);
 
             DataSource file = new(world, fileName, "Hello, World!");
-            if (system.TryImport(fileName, out BinaryReader reader))
-            {
-                using UnmanagedArray<char> buffer = new(reader.Length);
-                Span<char> span = buffer.AsSpan();
-                int length = reader.ReadUTF8Span(span);
-                ReadOnlySpan<char> fileText = span[..length];
-                Assert.That(fileText.ToString(), Is.EqualTo("Hello, World!"));
-                reader.Dispose();
-            }
-            else
-            {
-                Assert.Fail("File not found.");
-            }
+            DataRequest request = new(world, fileName);
+            Simulate(world);
+
+            await request.UntilLoaded(cancellation);
+            using BinaryReader reader = new(request.Data);
+            using UnmanagedArray<char> buffer = new(reader.Length);
+            Span<char> span = buffer.AsSpan();
+            int length = reader.ReadUTF8Span(span);
+            ReadOnlySpan<char> fileText = span[..length];
+            Assert.That(fileText.ToString(), Is.EqualTo("Hello, World!"));
         }
 
-        [Test]
-        public void FindEntityFile()
+        [Test, CancelAfter(1000)]
+        public async Task FindEntityFile(CancellationToken cancellation)
         {
-            string randomStr = Guid.NewGuid().ToString();
             using World world = new();
-            using DataImportSystem dataImports = new(world);
+            using DataImportSystem imports = new(world);
+            Simulate(world);
+
+            string randomStr = Guid.NewGuid().ToString();
             DataSource file = new(world, "tomato", randomStr);
             DataRequest readTomato = new(world, "tomato");
-            using BinaryReader reader = new(readTomato.Bytes);
+            Simulate(world);
+
+            await readTomato.UntilLoaded(cancellation);
+            Assert.That(readTomato.Status, Is.EqualTo(DataRequest.DataStatus.Loaded));
+            using BinaryReader reader = new(readTomato.Data);
             Span<char> buffer = stackalloc char[128];
             int length = reader.ReadUTF8Span(buffer);
             ReadOnlySpan<char> text = buffer[..length];
             Assert.That(text.ToString(), Is.EqualTo(randomStr));
         }
 
-        [Test]
-        public void DontFindThis()
+        [Test, CancelAfter(4000)]
+        public async Task DontFindThis(CancellationToken cancellation)
         {
             using World world = new();
-            using DataImportSystem dataImports = new(world);
-            Assert.Throws<RequestedDataNotFoundException>(() =>
+            using DataImportSystem imports = new(world);
+            Simulate(world);
+
+            DataRequest readTomato = new(world, "tomato");
+            CancellationTokenSource cts = new(400);
+            Simulate(world);
+
+            await Task.Run(async () =>
             {
-                DataRequest readTomato = new(world, "tomato");
-            });
+                try
+                {
+                    await readTomato.UntilLoaded(cts.Token);
+                    Assert.Fail("Should not have found the file.");
+                }
+                catch (Exception ex)
+                {
+                    Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
+                }
+            }, cancellation);
+
+            Assert.That(readTomato.Status, Is.EqualTo(DataRequest.DataStatus.None));
         }
 
         [Test]
@@ -95,11 +124,13 @@ namespace Data.Tests
             FixedString IDataReference.Value => "Assets/Materials/unlit.mat";
         }
 
-        [Test]
-        public void FindFileWithWildcard()
+        [Test, CancelAfter(5000)]
+        public async Task FindFileWithWildcard(CancellationToken cancellation)
         {
             using World world = new();
-            using DataImportSystem dataImports = new(world);
+            using DataImportSystem imports = new(world);
+            Simulate(world);
+
             DataSource sourceMat = new(world, "Assets/Materials/unlit.mat", "material");
             DataSource sourceJson = new(world, "Assets/Materials/unlit.json", "json");
             DataSource sourceShader = new(world, "Assets/Materials/unlit.shader", "shader");
@@ -107,9 +138,13 @@ namespace Data.Tests
 
             DataRequest matRequest = new(world, "*/unlit.mat");
             DataRequest anyShaderRequest = new(world, "*.shader");
+            Simulate(world);
 
-            using BinaryReader matReader = new(matRequest.Bytes);
-            using BinaryReader shaderReader = new(anyShaderRequest.Bytes);
+            await matRequest.UntilLoaded(cancellation);
+            await anyShaderRequest.UntilLoaded(cancellation);
+
+            using BinaryReader matReader = new(matRequest.Data);
+            using BinaryReader shaderReader = new(anyShaderRequest.Data);
             Span<char> buffer = stackalloc char[128];
             int length = matReader.ReadUTF8Span(buffer);
             Assert.That(buffer[..length].ToString(), Is.EqualTo("material"));
@@ -118,14 +153,18 @@ namespace Data.Tests
             Assert.That(buffer[..length].ToString(), Is.EqualTo("shader"));
         }
 
-        [Test]
-        public void FindEmbeddedResource()
+        [Test, CancelAfter(1000)]
+        public async Task FindEmbeddedResource(CancellationToken cancellation)
         {
             using World world = new();
-            using DataImportSystem dataImports = new(world);
+            using DataImportSystem imports = new(world);
+            Simulate(world);
 
-            DataRequest testData = new(world, "*/Assets/TestData.txt");
-            using BinaryReader reader = new(testData.Bytes);
+            DataRequest testRequest = new(world, "*/Assets/TestData.txt");
+            Simulate(world);
+
+            await testRequest.UntilLoaded(cancellation);
+            using BinaryReader reader = new(testRequest.Data);
             Span<char> buffer = stackalloc char[128];
             int length = reader.ReadUTF8Span(buffer);
             Assert.That(buffer[..length].ToString(), Contains.Substring("abacus"));

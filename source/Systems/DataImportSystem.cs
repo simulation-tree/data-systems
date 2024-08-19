@@ -2,9 +2,13 @@
 using Data.Events;
 using Simulation;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Reflection.PortableExecutable;
+using System.Threading;
 using Unmanaged;
 using Unmanaged.Collections;
 
@@ -12,19 +16,36 @@ namespace Data.Systems
 {
     public class DataImportSystem : SystemBase
     {
-        private readonly Query<IsData> fileQuery;
+        private readonly Query<IsDataRequest> requestQuery;
+        private readonly UnmanagedList<eint> loadingEntities;
+        private readonly ConcurrentQueue<UnmanagedArray<Instruction>> operations;
+
         private UnmanagedList<BinaryReader> embeddedResources;
         private UnmanagedList<Address> embeddedAddresses;
 
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         public DataImportSystem(World world) : base(world)
         {
+            requestQuery = new(world);
+            loadingEntities = new();
+            operations = new();
             Subscribe<DataUpdate>(Update);
-            fileQuery = new(world);
         }
 
-        public override void Dispose()
+        public unsafe override void Dispose()
         {
+            while (operations.TryDequeue(out UnmanagedArray<Instruction> operation))
+            {
+                foreach (Instruction instruction in operation)
+                {
+                    instruction.Dispose();
+                }
+
+                operation.Dispose();
+            }
+
+            loadingEntities.Dispose();
+
             if (embeddedResources != default)
             {
                 foreach (BinaryReader resource in embeddedResources)
@@ -36,7 +57,7 @@ namespace Data.Systems
                 embeddedAddresses.Dispose();
             }
 
-            fileQuery.Dispose();
+            requestQuery.Dispose();
             base.Dispose();
         }
 
@@ -44,6 +65,7 @@ namespace Data.Systems
         private void Update(DataUpdate e)
         {
             Update();
+            PerformInstructions();
         }
 
         /// <summary>
@@ -53,24 +75,88 @@ namespace Data.Systems
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         private void Update()
         {
-            foreach (eint entity in world.GetAll<IsDataRequest>())
+            requestQuery.Update();
+            foreach (var x in requestQuery)
             {
-                ref IsDataRequest import = ref world.GetComponentRef<IsDataRequest>(entity);
-                if (import.changed)
+                eint entity = x.entity;
+                ref IsDataRequest import = ref x.Component1;
+                if (import.status == DataRequest.DataStatus.Unknown)
                 {
-                    import.changed = false;
-                    if (!TryImport(world, entity, import.address))
+                    if (embeddedResources == default)
                     {
-                        throw new RequestedDataNotFoundException($"Could not find data to import from `{import.address}`");
+                        FindAllEmbeddedResources();
+                    }
+
+                    if (loadingEntities.TryAdd(entity))
+                    {
+                        import.status = DataRequest.DataStatus.Loading;
+                        //ThreadPool.QueueUserWorkItem(LoadDataOntoEntity, entity, false);
+                        LoadDataOntoEntity(entity);
+                    }
+                    else
+                    {
+                        //entity become unknown when already loading
+                        throw new InvalidOperationException($"Entity `{entity}` is already loading data");
                     }
                 }
             }
         }
 
+        private unsafe void PerformInstructions()
+        {
+            while (operations.TryDequeue(out UnmanagedArray<Instruction> operation))
+            {
+                Console.WriteLine($"Performing operation with {operation.Length} instructions");
+                world.Perform(operation);
+                operation.Dispose();
+            }
+        }
+
+        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
+        private unsafe void LoadDataOntoEntity(eint entity)
+        {
+            IsDataRequest import = world.GetComponentRef<IsDataRequest>(entity);
+            FixedString address = import.address;
+            Span<char> buffer = stackalloc char[FixedString.MaxLength];
+            int length = address.CopyTo(buffer);
+            buffer = buffer[..length];
+
+            Console.WriteLine($"Loading data from `{buffer}` onto entity `{entity}` ({import.status})");
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            if (TryImport(buffer, out BinaryReader reader))
+            {
+                Console.WriteLine("import");
+                if (!world.ContainsList<byte>(entity))
+                {
+                    world.CreateList<byte>(entity);
+                }
+
+                UnmanagedList<byte> data = world.GetList<byte>(entity);
+                data.Clear();
+                data.AddRange(reader.AsSpan());
+                reader.Dispose();
+                import.status = DataRequest.DataStatus.Loaded;
+                Console.WriteLine("loaded");
+            }
+            else
+            {
+                import.status = DataRequest.DataStatus.None;
+                Console.WriteLine("no");
+            }
+
+            stopwatch.Stop();
+            Console.WriteLine($"Finished loading data at `{address}` onto entity `{entity}` in {stopwatch.ElapsedMilliseconds}ms");
+            UnmanagedArray<Instruction> instructions = new(2);
+            instructions[0] = Instruction.SelectEntity(entity);
+            instructions[1] = Instruction.SetComponent(import);
+            operations.Enqueue(instructions);
+            Console.WriteLine($"Enqueued operation with {instructions.Length} instructions");
+        }
+
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         private void FindAllEmbeddedResources()
         {
-            //todo: efficiency: skip loading all embedded resources, its very taxing on startup time
+            //todo: efficiency: skip loading all embedded resources? its very taxing on startup time
             embeddedResources = new();
             embeddedAddresses = new();
             Dictionary<int, Assembly> sourceAssemblies = [];
@@ -78,10 +164,14 @@ namespace Data.Systems
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 string assemblyName = assembly.GetName().Name ?? string.Empty;
+                if (IgnoredAssembly(assemblyName)) continue;
+
                 allAssemblies.TryAdd(assemblyName, assembly);
                 foreach (AssemblyName referencedAssemblyName in assembly.GetReferencedAssemblies())
                 {
                     assemblyName = referencedAssemblyName.Name ?? string.Empty;
+                    if (IgnoredAssembly(assemblyName)) continue;
+
                     if (allAssemblies.ContainsKey(assemblyName))
                     {
                         continue;
@@ -97,6 +187,21 @@ namespace Data.Systems
                         //ignore
                     }
                 }
+            }
+
+            static bool IgnoredAssembly(string assemblyName)
+            {
+                if (assemblyName.StartsWith("TestCentric"))
+                {
+                    return true;
+                }
+
+                if (assemblyName == "System.Private.Xml")
+                {
+                    return true;
+                }
+
+                return false;
             }
 
             foreach (KeyValuePair<string, Assembly> pair in allAssemblies)
@@ -142,46 +247,12 @@ namespace Data.Systems
             }
         }
 
-        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
-        private bool TryImport(World world, eint entity, FixedString address)
-        {
-            Span<char> buffer = stackalloc char[address.Length];
-            address.CopyTo(buffer);
-            if (TryImport(buffer, out BinaryReader reader))
-            {
-                if (!world.ContainsList<byte>(entity))
-                {
-                    world.CreateList<byte>(entity);
-                }
-
-                UnmanagedList<byte> data = world.GetList<byte>(entity);
-                data.Clear();
-                data.AddRange(reader.AsSpan());
-                reader.Dispose();
-                return true;
-            }
-            else return false;
-        }
-
-        [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
-        public bool TryImport(FixedString address, out BinaryReader newReader)
-        {
-            Span<char> buffer = stackalloc char[address.Length];
-            address.CopyTo(buffer);
-            return TryImport(buffer, out newReader);
-        }
-
         /// <summary>
         /// Attempts to import data from the given address into a new reader.
         /// </summary>
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
-        public bool TryImport(ReadOnlySpan<char> address, out BinaryReader newReader)
+        private bool TryImport(ReadOnlySpan<char> address, out BinaryReader newReader)
         {
-            if (embeddedResources == default)
-            {
-                FindAllEmbeddedResources();
-            }
-
             //search embedded resources
             for (uint i = 0; i < embeddedAddresses.Count; i++)
             {
@@ -194,6 +265,7 @@ namespace Data.Systems
             }
 
             //search world
+            using Query<IsData> fileQuery = new(world);
             fileQuery.Update();
             foreach (Query<IsData>.Result result in fileQuery)
             {
@@ -206,17 +278,22 @@ namespace Data.Systems
                 }
             }
 
-            //search file system
-            string addressString = address.ToString();
-            if (!System.IO.File.Exists(addressString))
+            return TryLoadFromFileSystem(address, out newReader);
+        }
+
+        private bool TryLoadFromFileSystem(ReadOnlySpan<char> address, out BinaryReader reader)
+        {
+            try
             {
-                newReader = default;
+                using System.IO.FileStream fileStream = new(address.ToString(), System.IO.FileMode.Open, System.IO.FileAccess.Read);
+                reader = new(fileStream);
+                return true;
+            }
+            catch
+            {
+                reader = default;
                 return false;
             }
-
-            using System.IO.FileStream fileStream = new(addressString, System.IO.FileMode.Open, System.IO.FileAccess.Read);
-            newReader = new(fileStream);
-            return true;
         }
     }
 }
