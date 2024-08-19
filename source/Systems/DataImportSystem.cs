@@ -7,8 +7,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Reflection.PortableExecutable;
-using System.Threading;
 using Unmanaged;
 using Unmanaged.Collections;
 
@@ -18,7 +16,7 @@ namespace Data.Systems
     {
         private readonly Query<IsDataRequest> requestQuery;
         private readonly UnmanagedList<eint> loadingEntities;
-        private readonly ConcurrentQueue<UnmanagedArray<Instruction>> operations;
+        private readonly ConcurrentQueue<Operation> operations;
 
         private UnmanagedList<BinaryReader> embeddedResources;
         private UnmanagedList<Address> embeddedAddresses;
@@ -34,13 +32,8 @@ namespace Data.Systems
 
         public unsafe override void Dispose()
         {
-            while (operations.TryDequeue(out UnmanagedArray<Instruction> operation))
+            while (operations.TryDequeue(out Operation operation))
             {
-                foreach (Instruction instruction in operation)
-                {
-                    instruction.Dispose();
-                }
-
                 operation.Dispose();
             }
 
@@ -79,8 +72,8 @@ namespace Data.Systems
             foreach (var x in requestQuery)
             {
                 eint entity = x.entity;
-                ref IsDataRequest import = ref x.Component1;
-                if (import.status == DataRequest.DataStatus.Unknown)
+                ref IsDataRequest request = ref x.Component1;
+                if (request.status == DataRequest.DataStatus.Unknown)
                 {
                     if (embeddedResources == default)
                     {
@@ -89,9 +82,9 @@ namespace Data.Systems
 
                     if (loadingEntities.TryAdd(entity))
                     {
-                        import.status = DataRequest.DataStatus.Loading;
-                        //ThreadPool.QueueUserWorkItem(LoadDataOntoEntity, entity, false);
-                        LoadDataOntoEntity(entity);
+                        request.status = DataRequest.DataStatus.Loading;
+                        //ThreadPool.QueueUserWorkItem(LoadDataOntoEntity, (entity, request), false);
+                        LoadDataOntoEntity((entity, request));
                     }
                     else
                     {
@@ -104,59 +97,59 @@ namespace Data.Systems
 
         private unsafe void PerformInstructions()
         {
-            while (operations.TryDequeue(out UnmanagedArray<Instruction> operation))
+            while (operations.TryDequeue(out Operation operation))
             {
-                Console.WriteLine($"Performing operation with {operation.Length} instructions");
                 world.Perform(operation);
                 operation.Dispose();
             }
         }
 
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
-        private unsafe void LoadDataOntoEntity(eint entity)
+        private unsafe void LoadDataOntoEntity((eint entity, IsDataRequest request) input)
         {
-            IsDataRequest import = world.GetComponentRef<IsDataRequest>(entity);
+            IsDataRequest import = input.request;
+            eint entity = input.entity;
             FixedString address = import.address;
             Span<char> buffer = stackalloc char[FixedString.MaxLength];
             int length = address.CopyTo(buffer);
             buffer = buffer[..length];
 
-            Console.WriteLine($"Loading data from `{buffer}` onto entity `{entity}` ({import.status})");
+            Console.WriteLine($"Loading data from `{address}` onto entity `{entity}`");
             Stopwatch stopwatch = Stopwatch.StartNew();
+
+            Operation operation = new();
+            operation.SelectEntity(entity);
             if (TryImport(buffer, out BinaryReader reader))
             {
-                Console.WriteLine("import");
                 if (!world.ContainsList<byte>(entity))
                 {
-                    world.CreateList<byte>(entity);
+                    operation.CreateList<byte>();
+                }
+                else
+                {
+                    operation.ClearList<byte>();
                 }
 
-                UnmanagedList<byte> data = world.GetList<byte>(entity);
-                data.Clear();
-                data.AddRange(reader.AsSpan());
+                operation.AppendToList(reader.AsSpan());
                 reader.Dispose();
                 import.status = DataRequest.DataStatus.Loaded;
-                Console.WriteLine("loaded");
             }
             else
             {
                 import.status = DataRequest.DataStatus.None;
-                Console.WriteLine("no");
             }
+
+            operation.SetComponent(import);
+            operations.Enqueue(operation);
 
             stopwatch.Stop();
             Console.WriteLine($"Finished loading data at `{address}` onto entity `{entity}` in {stopwatch.ElapsedMilliseconds}ms");
-            UnmanagedArray<Instruction> instructions = new(2);
-            instructions[0] = Instruction.SelectEntity(entity);
-            instructions[1] = Instruction.SetComponent(import);
-            operations.Enqueue(instructions);
-            Console.WriteLine($"Enqueued operation with {instructions.Length} instructions");
         }
 
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         private void FindAllEmbeddedResources()
         {
-            //todo: efficiency: skip loading all embedded resources? its very taxing on startup time
+            //todo: efficiency: skip loading all embedded resources? its very taxing on startup time and it stores the data
             embeddedResources = new();
             embeddedAddresses = new();
             Dictionary<int, Assembly> sourceAssemblies = [];
@@ -281,7 +274,7 @@ namespace Data.Systems
             return TryLoadFromFileSystem(address, out newReader);
         }
 
-        private bool TryLoadFromFileSystem(ReadOnlySpan<char> address, out BinaryReader reader)
+        private static bool TryLoadFromFileSystem(ReadOnlySpan<char> address, out BinaryReader reader)
         {
             try
             {
