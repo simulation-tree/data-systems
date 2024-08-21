@@ -17,10 +17,11 @@ namespace Data.Tests
             Allocations.ThrowIfAny();
         }
 
-        private void Simulate(World world)
+        private async Task Simulate(World world, CancellationToken cancellation)
         {
             world.Submit(new DataUpdate());
             world.Poll();
+            await Task.Delay(1, cancellation).ConfigureAwait(false);
         }
 
         [Test]
@@ -48,13 +49,12 @@ namespace Data.Tests
             const string fileName = "test.txt";
             using World world = new();
             using DataImportSystem imports = new(world);
-            Simulate(world);
 
             DataSource file = new(world, fileName, "Hello, World!");
-            DataRequest request = new(world, fileName);
-            Simulate(world);
+            DataEntity request = new(world, fileName);
 
-            await request.UntilLoaded(cancellation);
+            await request.UntilIs(Simulate, cancellation);
+
             using BinaryReader reader = new(request.Data);
             using UnmanagedArray<char> buffer = new(reader.Length);
             Span<char> span = buffer.AsSpan();
@@ -68,15 +68,13 @@ namespace Data.Tests
         {
             using World world = new();
             using DataImportSystem imports = new(world);
-            Simulate(world);
-
             string randomStr = Guid.NewGuid().ToString();
             DataSource file = new(world, "tomato", randomStr);
-            DataRequest readTomato = new(world, "tomato");
-            Simulate(world);
+            DataEntity readTomato = new(world, "tomato");
 
-            await readTomato.UntilLoaded(cancellation);
-            Assert.That(readTomato.Status, Is.EqualTo(DataRequest.DataStatus.Loaded));
+            await readTomato.UntilIs(Simulate, cancellation);
+
+            Assert.That(readTomato.Is(), Is.True);
             using BinaryReader reader = new(readTomato.Data);
             Span<char> buffer = stackalloc char[128];
             int length = reader.ReadUTF8Span(buffer);
@@ -89,33 +87,26 @@ namespace Data.Tests
         {
             using World world = new();
             using DataImportSystem imports = new(world);
-            Simulate(world);
-
-            DataRequest readTomato = new(world, "tomato");
-            CancellationTokenSource cts = new(400);
-            Simulate(world);
-
-            await Task.Run(async () =>
+            DataEntity readTomato = new(world, "tomato");
+            CancellationTokenSource cts = new(800);
+            try
             {
-                try
-                {
-                    await readTomato.UntilLoaded(cts.Token);
-                    Assert.Fail("Should not have found the file.");
-                }
-                catch (Exception ex)
-                {
-                    Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
-                }
-            }, cancellation);
+                await readTomato.UntilIs(Simulate, cts.Token);
+                Assert.Fail("Should not have found the file.");
+            }
+            catch (Exception ex)
+            {
+                Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
+            }
 
-            Assert.That(readTomato.Status, Is.EqualTo(DataRequest.DataStatus.None));
+            Assert.That(readTomato.Is(), Is.False);
         }
 
         [Test]
         public void UseDataReference()
         {
             using World world = new();
-            DataRequest defaultMaterial = new(world, Address.Get<DefaultMaterial>());
+            DataEntity defaultMaterial = new(world, Address.Get<DefaultMaterial>());
             Assert.That(defaultMaterial.Address.ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
         }
 
@@ -129,19 +120,17 @@ namespace Data.Tests
         {
             using World world = new();
             using DataImportSystem imports = new(world);
-            Simulate(world);
 
             DataSource sourceMat = new(world, "Assets/Materials/unlit.mat", "material");
             DataSource sourceJson = new(world, "Assets/Materials/unlit.json", "json");
             DataSource sourceShader = new(world, "Assets/Materials/unlit.shader", "shader");
             DataSource sourceTxt = new(world, "Assets/Materials/unlit.txt", "text");
 
-            DataRequest matRequest = new(world, "*/unlit.mat");
-            DataRequest anyShaderRequest = new(world, "*.shader");
-            Simulate(world);
+            DataEntity matRequest = new(world, "*/unlit.mat");
+            DataEntity anyShaderRequest = new(world, "*.shader");
 
-            await matRequest.UntilLoaded(cancellation);
-            await anyShaderRequest.UntilLoaded(cancellation);
+            await matRequest.UntilIs(Simulate, cancellation);
+            await anyShaderRequest.UntilIs(Simulate, cancellation);
 
             using BinaryReader matReader = new(matRequest.Data);
             using BinaryReader shaderReader = new(anyShaderRequest.Data);
@@ -158,12 +147,10 @@ namespace Data.Tests
         {
             using World world = new();
             using DataImportSystem imports = new(world);
-            Simulate(world);
+            DataEntity testRequest = new(world, "*/Assets/TestData.txt");
 
-            DataRequest testRequest = new(world, "*/Assets/TestData.txt");
-            Simulate(world);
+            await testRequest.UntilIs(Simulate, cancellation);
 
-            await testRequest.UntilLoaded(cancellation);
             using BinaryReader reader = new(testRequest.Data);
             Span<char> buffer = stackalloc char[128];
             int length = reader.ReadUTF8Span(buffer);

@@ -4,7 +4,6 @@ using Simulation;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Unmanaged;
@@ -16,6 +15,7 @@ namespace Data.Systems
     {
         private readonly Query<IsDataRequest> requestQuery;
         private readonly UnmanagedList<eint> loadingEntities;
+        private readonly UnmanagedDictionary<eint, uint> dataVersions;
         private readonly ConcurrentQueue<Operation> operations;
 
         private UnmanagedList<BinaryReader> embeddedResources;
@@ -26,6 +26,7 @@ namespace Data.Systems
         {
             requestQuery = new(world);
             loadingEntities = new();
+            dataVersions = new();
             operations = new();
             Subscribe<DataUpdate>(Update);
         }
@@ -37,6 +38,7 @@ namespace Data.Systems
                 operation.Dispose();
             }
 
+            dataVersions.Dispose();
             loadingEntities.Dispose();
 
             if (embeddedResources != default)
@@ -71,25 +73,30 @@ namespace Data.Systems
             requestQuery.Update();
             foreach (var x in requestQuery)
             {
+                IsDataRequest request = x.Component1;
                 eint entity = x.entity;
-                ref IsDataRequest request = ref x.Component1;
-                if (request.status == DataRequest.DataStatus.Unknown)
+                bool sourceChanged = false;
+                eint modelEntity = x.entity;
+                if (!dataVersions.ContainsKey(modelEntity))
+                {
+                    sourceChanged = true;
+                }
+                else
+                {
+                    sourceChanged = dataVersions[modelEntity] != request.version;
+                }
+
+                if (sourceChanged)
                 {
                     if (embeddedResources == default)
                     {
                         FindAllEmbeddedResources();
                     }
 
-                    if (loadingEntities.TryAdd(entity))
+                    //ThreadPool.QueueUserWorkItem(UpdateMeshReferencesOnModelEntity, modelEntity, false);
+                    if (TryLoadDataOntoEntity((entity, request.address)))
                     {
-                        request.status = DataRequest.DataStatus.Loading;
-                        //ThreadPool.QueueUserWorkItem(LoadDataOntoEntity, (entity, request), false);
-                        LoadDataOntoEntity((entity, request));
-                    }
-                    else
-                    {
-                        //entity become unknown when already loading
-                        throw new InvalidOperationException($"Entity `{entity}` is already loading data");
+                        dataVersions[modelEntity] = request.version;
                     }
                 }
             }
@@ -105,22 +112,20 @@ namespace Data.Systems
         }
 
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
-        private unsafe void LoadDataOntoEntity((eint entity, IsDataRequest request) input)
+        private unsafe bool TryLoadDataOntoEntity((eint entity, FixedString address) input)
         {
-            IsDataRequest import = input.request;
             eint entity = input.entity;
-            FixedString address = import.address;
+            FixedString address = input.address;
             Span<char> buffer = stackalloc char[FixedString.MaxLength];
             int length = address.CopyTo(buffer);
             buffer = buffer[..length];
 
-            Console.WriteLine($"Loading data from `{address}` onto entity `{entity}`");
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
-            Operation operation = new();
-            operation.SelectEntity(entity);
             if (TryImport(buffer, out BinaryReader reader))
             {
+                Operation operation = new();
+                operation.SelectEntity(entity);
+
+                //load the bytes onto the entity
                 if (!world.ContainsList<byte>(entity))
                 {
                     operation.CreateList<byte>();
@@ -130,20 +135,27 @@ namespace Data.Systems
                     operation.ClearList<byte>();
                 }
 
-                operation.AppendToList(reader.AsSpan());
+                operation.AppendToList(reader.GetBytes());
                 reader.Dispose();
-                import.status = DataRequest.DataStatus.Loaded;
+
+                //increment data version
+                if (world.TryGetComponent(entity, out IsData data))
+                {
+                    data.version++;
+                    operation.SetComponent(data);
+                }
+                else
+                {
+                    operation.AddComponent(new IsData());
+                }
+
+                operations.Enqueue(operation);
+                return true;
             }
             else
             {
-                import.status = DataRequest.DataStatus.None;
+                return false;
             }
-
-            operation.SetComponent(import);
-            operations.Enqueue(operation);
-
-            stopwatch.Stop();
-            Console.WriteLine($"Finished loading data at `{address}` onto entity `{entity}` in {stopwatch.ElapsedMilliseconds}ms");
         }
 
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
@@ -253,20 +265,22 @@ namespace Data.Systems
                 if (embeddedAddress.Matches(address))
                 {
                     newReader = new(embeddedResources[i]);
+                    Console.WriteLine($"Loaded data from embedded resource at `{address.ToString()}`");
                     return true;
                 }
             }
 
             //search world
-            using Query<IsData> fileQuery = new(world);
+            using Query<IsDataSource> fileQuery = new(world);
             fileQuery.Update();
-            foreach (Query<IsData>.Result result in fileQuery)
+            foreach (var result in fileQuery)
             {
-                IsData file = result.Component1;
+                IsDataSource file = result.Component1;
                 if (new Address(file.address).Matches(address))
                 {
                     UnmanagedList<byte> fileData = world.GetList<byte>(result.entity);
                     newReader = new(fileData.AsSpan());
+                    Console.WriteLine($"Loaded data from entity at `{address.ToString()}`");
                     return true;
                 }
             }
@@ -280,6 +294,7 @@ namespace Data.Systems
             {
                 using System.IO.FileStream fileStream = new(address.ToString(), System.IO.FileMode.Open, System.IO.FileAccess.Read);
                 reader = new(fileStream);
+                Console.WriteLine($"Loaded data from file system at `{address.ToString()}`");
                 return true;
             }
             catch
