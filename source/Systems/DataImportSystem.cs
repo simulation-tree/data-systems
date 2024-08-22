@@ -290,14 +290,15 @@ namespace Data.Systems
 
         private static bool TryLoadFromFileSystem(ReadOnlySpan<char> address, out BinaryReader reader)
         {
-            try
+            string addressStr = address.ToString();
+            if (System.IO.File.Exists(addressStr))
             {
-                using System.IO.FileStream fileStream = new(address.ToString(), System.IO.FileMode.Open, System.IO.FileAccess.Read);
+                using System.IO.FileStream fileStream = new(addressStr, System.IO.FileMode.Open, System.IO.FileAccess.Read);
                 reader = new(fileStream);
-                Console.WriteLine($"Loaded data from file system at `{address.ToString()}`");
+                Console.WriteLine($"Loaded data from file system at `{addressStr}`");
                 return true;
             }
-            catch
+            else
             {
                 reader = default;
                 return false;
