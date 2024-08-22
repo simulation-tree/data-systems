@@ -117,7 +117,7 @@ namespace Data.Systems
             eint entity = input.entity;
             FixedString address = input.address;
             Span<char> buffer = stackalloc char[FixedString.MaxLength];
-            int length = address.CopyTo(buffer);
+            int length = address.ToString(buffer);
             buffer = buffer[..length];
 
             if (TryImport(buffer, out BinaryReader reader))
