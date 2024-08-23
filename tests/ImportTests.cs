@@ -51,7 +51,7 @@ namespace Data.Tests
             using DataImportSystem imports = new(world);
 
             DataSource file = new(world, fileName, "Hello, World!");
-            DataEntity request = new(world, fileName);
+            DataRequest request = new(world, fileName);
 
             await request.UntilIs(Simulate, cancellation);
 
@@ -70,7 +70,7 @@ namespace Data.Tests
             using DataImportSystem imports = new(world);
             string randomStr = Guid.NewGuid().ToString();
             DataSource file = new(world, "tomato", randomStr);
-            DataEntity readTomato = new(world, "tomato");
+            DataRequest readTomato = new(world, "tomato");
 
             await readTomato.UntilIs(Simulate, cancellation);
 
@@ -87,7 +87,7 @@ namespace Data.Tests
         {
             using World world = new();
             using DataImportSystem imports = new(world);
-            DataEntity readTomato = new(world, "tomato");
+            DataRequest readTomato = new(world, "tomato");
             CancellationTokenSource cts = new(800);
             try
             {
@@ -106,7 +106,7 @@ namespace Data.Tests
         public void UseDataReference()
         {
             using World world = new();
-            DataEntity defaultMaterial = new(world, Address.Get<DefaultMaterial>());
+            DataRequest defaultMaterial = new(world, Address.Get<DefaultMaterial>());
             Assert.That(defaultMaterial.Address.ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
         }
 
@@ -126,8 +126,8 @@ namespace Data.Tests
             DataSource sourceShader = new(world, "Assets/Materials/unlit.shader", "shader");
             DataSource sourceTxt = new(world, "Assets/Materials/unlit.txt", "text");
 
-            DataEntity matRequest = new(world, "*/unlit.mat");
-            DataEntity anyShaderRequest = new(world, "*.shader");
+            DataRequest matRequest = new(world, "*/unlit.mat");
+            DataRequest anyShaderRequest = new(world, "*.shader");
 
             await matRequest.UntilIs(Simulate, cancellation);
             await anyShaderRequest.UntilIs(Simulate, cancellation);
@@ -147,7 +147,7 @@ namespace Data.Tests
         {
             using World world = new();
             using DataImportSystem imports = new(world);
-            DataEntity testRequest = new(world, "*/Assets/TestData.txt");
+            DataRequest testRequest = new(world, "*/Assets/TestData.txt");
 
             await testRequest.UntilIs(Simulate, cancellation);
 
