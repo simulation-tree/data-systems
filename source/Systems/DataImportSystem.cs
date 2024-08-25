@@ -96,7 +96,7 @@ namespace Data.Systems
                     //ThreadPool.QueueUserWorkItem(UpdateMeshReferencesOnModelEntity, modelEntity, false);
                     if (TryLoadDataOntoEntity((entity, request.address)))
                     {
-                        dataVersions[modelEntity] = request.version;
+                        dataVersions.AddOrSet(modelEntity, request.version);
                     }
                 }
             }
@@ -126,16 +126,17 @@ namespace Data.Systems
                 operation.SelectEntity(entity);
 
                 //load the bytes onto the entity
-                if (!world.ContainsList<byte>(entity))
+                if (!world.ContainsArray<byte>(entity))
                 {
-                    operation.CreateList<byte>();
+                    operation.CreateArray<byte>(reader.GetBytes());
                 }
                 else
                 {
-                    operation.ClearList<byte>();
+                    ReadOnlySpan<byte> readData = reader.GetBytes();
+                    operation.ResizeArray<byte>((uint)readData.Length);
+                    operation.SetArrayElement(0, readData);
                 }
 
-                operation.AppendToList(reader.GetBytes());
                 reader.Dispose();
 
                 //increment data version
@@ -278,8 +279,8 @@ namespace Data.Systems
                 IsDataSource file = result.Component1;
                 if (new Address(file.address).Matches(address))
                 {
-                    UnmanagedList<byte> fileData = world.GetList<byte>(result.entity);
-                    newReader = new(fileData.AsSpan());
+                    Span<byte> fileData = world.GetArray<byte>(result.entity);
+                    newReader = new(fileData);
                     Console.WriteLine($"Loaded data from entity at `{address.ToString()}`");
                     return true;
                 }
