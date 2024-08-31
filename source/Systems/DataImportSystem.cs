@@ -14,8 +14,8 @@ namespace Data.Systems
     public class DataImportSystem : SystemBase
     {
         private readonly Query<IsDataRequest> requestQuery;
-        private readonly UnmanagedList<eint> loadingEntities;
-        private readonly UnmanagedDictionary<eint, uint> dataVersions;
+        private readonly UnmanagedList<uint> loadingEntities;
+        private readonly UnmanagedDictionary<uint, uint> dataVersions;
         private readonly ConcurrentQueue<Operation> operations;
 
         private UnmanagedList<BinaryReader> embeddedResources;
@@ -74,9 +74,9 @@ namespace Data.Systems
             foreach (var x in requestQuery)
             {
                 IsDataRequest request = x.Component1;
-                eint entity = x.entity;
+                uint entity = x.entity;
                 bool sourceChanged = false;
-                eint modelEntity = x.entity;
+                uint modelEntity = x.entity;
                 if (!dataVersions.ContainsKey(modelEntity))
                 {
                     sourceChanged = true;
@@ -112,9 +112,9 @@ namespace Data.Systems
         }
 
         [RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
-        private unsafe bool TryLoadDataOntoEntity((eint entity, FixedString address) input)
+        private unsafe bool TryLoadDataOntoEntity((uint entity, FixedString address) input)
         {
-            eint entity = input.entity;
+            uint entity = input.entity;
             FixedString address = input.address;
             Span<char> buffer = stackalloc char[FixedString.MaxLength];
             int length = address.ToString(buffer);
