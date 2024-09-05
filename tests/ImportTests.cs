@@ -53,13 +53,13 @@ namespace Data.Tests
             DataSource file = new(world, fileName, "Hello, World!");
             DataRequest request = new(world, fileName);
 
-            await request.UntilIs(Simulate, cancellation);
+            await request.UntilCompliant(Simulate, cancellation);
 
             using BinaryReader reader = new(request.Data);
             using UnmanagedArray<char> buffer = new(reader.Length);
-            Span<char> span = buffer.AsSpan();
-            int length = reader.ReadUTF8Span(span);
-            ReadOnlySpan<char> fileText = span[..length];
+            USpan<char> span = buffer.AsSpan();
+            uint length = reader.ReadUTF8Span(span);
+            USpan<char> fileText = span.Slice(0, length);
             Assert.That(fileText.ToString(), Is.EqualTo("Hello, World!"));
         }
 
@@ -72,13 +72,13 @@ namespace Data.Tests
             DataSource file = new(world, "tomato", randomStr);
             DataRequest readTomato = new(world, "tomato");
 
-            await readTomato.UntilIs(Simulate, cancellation);
+            await readTomato.UntilCompliant(Simulate, cancellation);
 
-            Assert.That(readTomato.Is(), Is.True);
+            Assert.That(readTomato.IsCompliant(), Is.True);
             using BinaryReader reader = new(readTomato.Data);
-            Span<char> buffer = stackalloc char[128];
-            int length = reader.ReadUTF8Span(buffer);
-            ReadOnlySpan<char> text = buffer[..length];
+            USpan<char> buffer = stackalloc char[128];
+            uint length = reader.ReadUTF8Span(buffer);
+            USpan<char> text = buffer.Slice(0, length);
             Assert.That(text.ToString(), Is.EqualTo(randomStr));
         }
 
@@ -91,7 +91,7 @@ namespace Data.Tests
             CancellationTokenSource cts = new(800);
             try
             {
-                await readTomato.UntilIs(Simulate, cts.Token);
+                await readTomato.UntilCompliant(Simulate, cts.Token);
                 Assert.Fail("Should not have found the file.");
             }
             catch (Exception ex)
@@ -99,7 +99,7 @@ namespace Data.Tests
                 Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
             }
 
-            Assert.That(readTomato.Is(), Is.False);
+            Assert.That(readTomato.IsCompliant(), Is.False);
         }
 
         [Test]
@@ -129,17 +129,17 @@ namespace Data.Tests
             DataRequest matRequest = new(world, "*/unlit.mat");
             DataRequest anyShaderRequest = new(world, "*.shader");
 
-            await matRequest.UntilIs(Simulate, cancellation);
-            await anyShaderRequest.UntilIs(Simulate, cancellation);
+            await matRequest.UntilCompliant(Simulate, cancellation);
+            await anyShaderRequest.UntilCompliant(Simulate, cancellation);
 
             using BinaryReader matReader = new(matRequest.Data);
             using BinaryReader shaderReader = new(anyShaderRequest.Data);
-            Span<char> buffer = stackalloc char[128];
-            int length = matReader.ReadUTF8Span(buffer);
-            Assert.That(buffer[..length].ToString(), Is.EqualTo("material"));
+            USpan<char> buffer = stackalloc char[128];
+            uint length = matReader.ReadUTF8Span(buffer);
+            Assert.That(buffer.Slice(0, length).ToString(), Is.EqualTo("material"));
 
             length = shaderReader.ReadUTF8Span(buffer);
-            Assert.That(buffer[..length].ToString(), Is.EqualTo("shader"));
+            Assert.That(buffer.Slice(0, length).ToString(), Is.EqualTo("shader"));
         }
 
         [Test, CancelAfter(1000)]
@@ -149,12 +149,12 @@ namespace Data.Tests
             using DataImportSystem imports = new(world);
             DataRequest testRequest = new(world, "*/Assets/TestData.txt");
 
-            await testRequest.UntilIs(Simulate, cancellation);
+            await testRequest.UntilCompliant(Simulate, cancellation);
 
             using BinaryReader reader = new(testRequest.Data);
-            Span<char> buffer = stackalloc char[128];
-            int length = reader.ReadUTF8Span(buffer);
-            Assert.That(buffer[..length].ToString(), Contains.Substring("abacus"));
+            USpan<char> buffer = stackalloc char[128];
+            uint length = reader.ReadUTF8Span(buffer);
+            Assert.That(buffer.Slice(0, length).ToString(), Contains.Substring("abacus"));
         }
 
         [Test]
