@@ -136,7 +136,7 @@ namespace Data.Systems
                 else
                 {
                     USpan<byte> readData = reader.GetBytes();
-                    operation.ResizeArray<byte>(readData.length);
+                    operation.ResizeArray<byte>(readData.Length);
                     operation.SetArrayElement(0, readData);
                 }
 
