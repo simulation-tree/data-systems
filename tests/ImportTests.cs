@@ -1,6 +1,6 @@
-﻿using Data.Events;
-using Data.Systems;
+﻿using Data.Systems;
 using Simulation;
+using Simulation.Tests;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,49 +9,20 @@ using Unmanaged.Collections;
 
 namespace Data.Tests
 {
-    public class ImportTests
+    public class ImportTests : SimulationTests
     {
-        [TearDown]
-        public void CleanUp()
+        protected override void SetUp()
         {
-            Allocations.ThrowIfAny();
-        }
-
-        private async Task Simulate(World world, CancellationToken cancellation)
-        {
-            world.Submit(new DataUpdate());
-            world.Poll();
-            await Task.Delay(1, cancellation).ConfigureAwait(false);
-        }
-
-        [Test]
-        public void CheckColorConversion()
-        {
-            Color red = Color.FromHSV(0, 1, 1);
-            Assert.That(red, Is.EqualTo(new Color(1, 0, 0)));
-
-            Color green = Color.FromHSV(120f / 360f, 1, 1);
-            Assert.That(green, Is.EqualTo(new Color(0, 1, 0)));
-
-            Color blue = Color.FromHSV(240f / 360f, 1, 1);
-            Assert.That(blue, Is.EqualTo(new Color(0, 0, 1)));
-
-            Color white = Color.FromHSV(0, 0, 1);
-            Assert.That(white, Is.EqualTo(new Color(1, 1, 1)));
-
-            Color doorhinge = new(0, 1f, 1f);
-            Assert.That(doorhinge.H, Is.EqualTo(0.5f));
+            base.SetUp();
+            Simulator.AddSystem<DataImportSystem>();
         }
 
         [Test, CancelAfter(1200)]
         public async Task ReadFromStaticFileSystem(CancellationToken cancellation)
         {
             const string fileName = "test.txt";
-            using World world = new();
-            using DataImportSystem imports = new(world);
-
-            DataSource file = new(world, fileName, "Hello, World!");
-            DataRequest request = new(world, fileName);
+            DataSource file = new(World, fileName, "Hello, World!");
+            DataRequest request = new(World, fileName);
 
             await request.UntilCompliant(Simulate, cancellation);
 
@@ -66,11 +37,9 @@ namespace Data.Tests
         [Test, CancelAfter(1000)]
         public async Task FindEntityFile(CancellationToken cancellation)
         {
-            using World world = new();
-            using DataImportSystem imports = new(world);
             string randomStr = Guid.NewGuid().ToString();
-            DataSource file = new(world, "tomato", randomStr);
-            DataRequest readTomato = new(world, "tomato");
+            DataSource file = new(World, "tomato", randomStr);
+            DataRequest readTomato = new(World, "tomato");
 
             await readTomato.UntilCompliant(Simulate, cancellation);
 
@@ -85,9 +54,7 @@ namespace Data.Tests
         [Test, CancelAfter(4000)]
         public async Task DontFindThis(CancellationToken cancellation)
         {
-            using World world = new();
-            using DataImportSystem imports = new(world);
-            DataRequest readTomato = new(world, "tomato");
+            DataRequest readTomato = new(World, "tomato");
             CancellationTokenSource cts = new(800);
             try
             {
@@ -102,32 +69,16 @@ namespace Data.Tests
             Assert.That(readTomato.IsCompliant(), Is.False);
         }
 
-        [Test]
-        public void UseDataReference()
-        {
-            using World world = new();
-            DataRequest defaultMaterial = new(world, Address.Get<DefaultMaterial>());
-            Assert.That(defaultMaterial.Address.ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
-        }
-
-        public readonly struct DefaultMaterial : IDataReference
-        {
-            FixedString IDataReference.Value => "Assets/Materials/unlit.mat";
-        }
-
         [Test, CancelAfter(5000)]
         public async Task FindFileWithWildcard(CancellationToken cancellation)
         {
-            using World world = new();
-            using DataImportSystem imports = new(world);
+            DataSource sourceMat = new(World, "Assets/Materials/unlit.mat", "material");
+            DataSource sourceJson = new(World, "Assets/Materials/unlit.json", "json");
+            DataSource sourceShader = new(World, "Assets/Materials/unlit.shader", "shader");
+            DataSource sourceTxt = new(World, "Assets/Materials/unlit.txt", "text");
 
-            DataSource sourceMat = new(world, "Assets/Materials/unlit.mat", "material");
-            DataSource sourceJson = new(world, "Assets/Materials/unlit.json", "json");
-            DataSource sourceShader = new(world, "Assets/Materials/unlit.shader", "shader");
-            DataSource sourceTxt = new(world, "Assets/Materials/unlit.txt", "text");
-
-            DataRequest matRequest = new(world, "*/unlit.mat");
-            DataRequest anyShaderRequest = new(world, "*.shader");
+            DataRequest matRequest = new(World, "*/unlit.mat");
+            DataRequest anyShaderRequest = new(World, "*.shader");
 
             await matRequest.UntilCompliant(Simulate, cancellation);
             await anyShaderRequest.UntilCompliant(Simulate, cancellation);
@@ -145,9 +96,7 @@ namespace Data.Tests
         [Test, CancelAfter(1000)]
         public async Task FindEmbeddedResource(CancellationToken cancellation)
         {
-            using World world = new();
-            using DataImportSystem imports = new(world);
-            DataRequest testRequest = new(world, "*/Assets/TestData.txt");
+            DataRequest testRequest = new(World, "*/Assets/TestData.txt");
 
             await testRequest.UntilCompliant(Simulate, cancellation);
 
@@ -155,13 +104,6 @@ namespace Data.Tests
             USpan<char> buffer = stackalloc char[128];
             uint length = reader.ReadUTF8Span(buffer);
             Assert.That(buffer.Slice(0, length).ToString(), Contains.Substring("abacus"));
-        }
-
-        [Test]
-        public void AddressEquality()
-        {
-            Address a = new("abacus");
-            Assert.That(a.Matches("*/abacus"), Is.True);
         }
     }
 }

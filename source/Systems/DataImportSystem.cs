@@ -1,47 +1,72 @@
 ﻿using Data.Components;
-using Data.Events;
 using Simulation;
+using Simulation.Functions;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Unmanaged;
 using Unmanaged.Collections;
 
 namespace Data.Systems
 {
-    public class DataImportSystem : SystemBase
+    public struct DataImportSystem : ISystem
     {
         private readonly ComponentQuery<IsDataRequest> requestQuery;
         private readonly ComponentQuery<IsDataSource> fileQuery;
-        private readonly UnmanagedList<uint> loadingEntities;
-        private readonly UnmanagedDictionary<uint, uint> dataVersions;
-        private readonly ConcurrentQueue<Operation> operations;
+        private readonly UnmanagedDictionary<Entity, uint> dataVersions;
+        private readonly UnmanagedList<Operation> operations;
 
         private UnmanagedList<BinaryReader> embeddedResources;
         private UnmanagedList<Address> embeddedAddresses;
 
-        public DataImportSystem(World world) : base(world)
+        readonly unsafe InitializeFunction ISystem.Initialize => new(&Initialize);
+        readonly unsafe IterateFunction ISystem.Update => new(&Update);
+        readonly unsafe FinalizeFunction ISystem.Finalize => new(&Finalize);
+
+        [UnmanagedCallersOnly]
+        private static void Initialize(SystemContainer container, World world)
+        {
+        }
+
+        [UnmanagedCallersOnly]
+        private static void Update(SystemContainer container, World world, TimeSpan delta)
+        {
+            ref DataImportSystem system = ref container.Read<DataImportSystem>();
+            system.Update(world);
+            system.PerformInstructions(world);
+        }
+
+        [UnmanagedCallersOnly]
+        private static void Finalize(SystemContainer container, World world)
+        {
+            if (container.World == world)
+            {
+                ref DataImportSystem system = ref container.Read<DataImportSystem>();
+                system.CleanUp();
+            }
+        }
+
+        public DataImportSystem()
         {
             requestQuery = new();
             fileQuery = new();
-            loadingEntities = new();
             dataVersions = new();
             operations = new();
-            Subscribe<DataUpdate>(Update);
         }
 
-        public unsafe override void Dispose()
+        private void CleanUp()
         {
-            while (operations.TryDequeue(out Operation operation))
+            while (operations.Count > 0)
             {
+                Operation operation = operations.RemoveAt(0);
                 operation.Dispose();
             }
 
+            operations.Dispose();
             dataVersions.Dispose();
-            loadingEntities.Dispose();
 
             if (embeddedResources != default)
             {
@@ -56,35 +81,27 @@ namespace Data.Systems
 
             fileQuery.Dispose();
             requestQuery.Dispose();
-            base.Dispose();
-        }
-
-        private void Update(DataUpdate e)
-        {
-            Update();
-            PerformInstructions();
         }
 
         /// <summary>
         /// Iterates over all entities with the <see cref="IsDataRequest"/> component and attempts
         /// to import the data at its address.
         /// </summary>
-        private void Update()
+        private void Update(World world)
         {
             requestQuery.Update(world);
             foreach (var x in requestQuery)
             {
                 IsDataRequest request = x.Component1;
-                uint entity = x.entity;
                 bool sourceChanged = false;
-                uint requestEntity = x.entity;
-                if (!dataVersions.ContainsKey(requestEntity))
+                Entity entity = new(world, x.entity);
+                if (!dataVersions.ContainsKey(entity))
                 {
                     sourceChanged = true;
                 }
                 else
                 {
-                    sourceChanged = dataVersions[requestEntity] != request.version;
+                    sourceChanged = dataVersions[entity] != request.version;
                 }
 
                 if (sourceChanged)
@@ -97,39 +114,41 @@ namespace Data.Systems
                     //ThreadPool.QueueUserWorkItem(UpdateMeshReferencesOnModelEntity, modelEntity, false);
                     if (TryLoadDataOntoEntity((entity, request.address)))
                     {
-                        dataVersions.AddOrSet(requestEntity, request.version);
+                        dataVersions.AddOrSet(entity, request.version);
                     }
                     else
                     {
-                        Debug.WriteLine($"Data request for `{requestEntity}` with address `{request.address}` failed, data not found");
+                        Debug.WriteLine($"Data request for `{entity}` with address `{request.address}` failed, data not found");
                     }
                 }
             }
         }
 
-        private unsafe void PerformInstructions()
+        private readonly void PerformInstructions(World world)
         {
-            while (operations.TryDequeue(out Operation operation))
+            while (operations.Count > 0)
             {
+                Operation operation = operations.RemoveAt(0);
                 world.Perform(operation);
                 operation.Dispose();
             }
         }
 
-        private unsafe bool TryLoadDataOntoEntity((uint entity, FixedString address) input)
+        private readonly unsafe bool TryLoadDataOntoEntity((Entity entity, FixedString address) input)
         {
-            uint entity = input.entity;
+            Entity entity = input.entity;
+            World world = entity.GetWorld();
             FixedString address = input.address;
             USpan<char> buffer = stackalloc char[(int)FixedString.MaxLength];
             uint length = address.CopyTo(buffer);
             buffer = buffer.Slice(0, length);
-            if (TryImport(buffer, out BinaryReader reader))
+            if (TryImport(world, buffer, out BinaryReader reader))
             {
                 Operation operation = new();
                 operation.SelectEntity(entity);
 
                 //load the bytes onto the entity
-                if (!world.ContainsArray<byte>(entity))
+                if (!entity.ContainsArray<byte>())
                 {
                     operation.CreateArray<byte>(reader.GetBytes());
                 }
@@ -143,7 +162,7 @@ namespace Data.Systems
                 reader.Dispose();
 
                 //increment data version
-                if (world.TryGetComponent(entity, out IsData data))
+                if (entity.TryGetComponent(out IsData data))
                 {
                     data.version++;
                     operation.SetComponent(data);
@@ -153,7 +172,7 @@ namespace Data.Systems
                     operation.AddComponent(new IsData());
                 }
 
-                operations.Enqueue(operation);
+                operations.Add(operation);
                 return true;
             }
             else
@@ -162,11 +181,9 @@ namespace Data.Systems
             }
         }
 
-        //[RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetReferencedAssemblies()")]
         [UnconditionalSuppressMessage("Aot", "IL2026")]
         private void FindAllEmbeddedResources()
         {
-            //todo: efficiency: skip loading all embedded resources? its very taxing on startup time and it stores the data
             embeddedResources = new();
             embeddedAddresses = new();
             Dictionary<int, Assembly> sourceAssemblies = [];
@@ -259,7 +276,7 @@ namespace Data.Systems
         /// <summary>
         /// Attempts to import data from the given address into a new reader.
         /// </summary>
-        private bool TryImport(USpan<char> address, out BinaryReader newReader)
+        private readonly bool TryImport(World world, USpan<char> address, out BinaryReader newReader)
         {
             //search embedded resources
             for (uint i = 0; i < embeddedAddresses.Count; i++)
