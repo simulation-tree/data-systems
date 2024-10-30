@@ -1,11 +1,11 @@
-﻿using Data.Systems;
+﻿using Collections;
+using Data.Systems;
 using Simulation;
 using Simulation.Tests;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Unmanaged;
-using Unmanaged.Collections;
 
 namespace Data.Tests
 {
@@ -27,7 +27,7 @@ namespace Data.Tests
             await request.UntilCompliant(Simulate, cancellation);
 
             using BinaryReader reader = new(request.Data);
-            using UnmanagedArray<char> buffer = new(reader.Length);
+            using Array<char> buffer = new(reader.Length);
             USpan<char> span = buffer.AsSpan();
             uint length = reader.ReadUTF8Span(span);
             USpan<char> fileText = span.Slice(0, length);

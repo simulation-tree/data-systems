@@ -1,4 +1,5 @@
-﻿using Data.Components;
+﻿using Collections;
+using Data.Components;
 using Simulation;
 using Simulation.Functions;
 using System;
@@ -8,7 +9,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Unmanaged;
-using Unmanaged.Collections;
 
 namespace Data.Systems
 {
@@ -16,11 +16,11 @@ namespace Data.Systems
     {
         private readonly ComponentQuery<IsDataRequest> requestQuery;
         private readonly ComponentQuery<IsDataSource> fileQuery;
-        private readonly UnmanagedDictionary<Entity, uint> dataVersions;
-        private readonly UnmanagedList<Operation> operations;
+        private readonly Collections.Dictionary<Entity, uint> dataVersions;
+        private readonly Collections.List<Operation> operations;
 
-        private UnmanagedList<BinaryReader> embeddedResources;
-        private UnmanagedList<Address> embeddedAddresses;
+        private Collections.List<BinaryReader> embeddedResources;
+        private Collections.List<Address> embeddedAddresses;
 
         readonly unsafe InitializeFunction ISystem.Initialize => new(&Initialize);
         readonly unsafe IterateFunction ISystem.Update => new(&Update);
@@ -186,8 +186,8 @@ namespace Data.Systems
         {
             embeddedResources = new();
             embeddedAddresses = new();
-            Dictionary<int, Assembly> sourceAssemblies = [];
-            Dictionary<string, Assembly> allAssemblies = new();
+            System.Collections.Generic.Dictionary<int, Assembly> sourceAssemblies = [];
+            System.Collections.Generic.Dictionary<string, Assembly> allAssemblies = new();
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 string assemblyName = assembly.GetName().Name ?? string.Empty;
