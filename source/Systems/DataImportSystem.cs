@@ -139,7 +139,7 @@ namespace Data.Systems
             Entity entity = input.entity;
             World world = entity.GetWorld();
             FixedString address = input.address;
-            USpan<char> buffer = stackalloc char[(int)FixedString.MaxLength];
+            USpan<char> buffer = stackalloc char[(int)FixedString.Capacity];
             uint length = address.CopyTo(buffer);
             buffer = buffer.Slice(0, length);
             if (TryImport(world, buffer, out BinaryReader reader))
