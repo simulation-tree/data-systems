@@ -118,7 +118,7 @@ namespace Data.Systems
                     }
                     else
                     {
-                        Debug.WriteLine($"Data request for `{entity}` with address `{request.address}` failed, data not found");
+                        Trace.WriteLine($"Data request for `{entity}` with address `{request.address}` failed, data not found");
                     }
                 }
             }
@@ -257,7 +257,7 @@ namespace Data.Systems
                     int resourcePathHash = resourcePathText.GetHashCode();
                     if (sourceAssemblies.TryGetValue(resourcePathHash, out Assembly? existing))
                     {
-                        Debug.WriteLine($"Duplicate resource with same address at `{resourcePathText}` from `{assemblyName}` was ignored, data from `{existing.GetName()}` is used instead");
+                        Trace.WriteLine($"Duplicate resource with same address at `{resourcePathText}` from `{assemblyName}` was ignored, data from `{existing.GetName()}` is used instead");
                     }
                     else
                     {
@@ -267,7 +267,7 @@ namespace Data.Systems
                         embeddedResources.Add(reader);
                         embeddedAddresses.Add(new Address(resourcePathText));
                         sourceAssemblies.Add(resourcePathHash, assembly);
-                        Debug.WriteLine($"Registered embedded resource at `{resourcePathText}` from `{assemblyName}`");
+                        Trace.WriteLine($"Registered embedded resource at `{resourcePathText}` from `{assemblyName}`");
                     }
                 }
             }
@@ -285,7 +285,7 @@ namespace Data.Systems
                 if (embeddedAddress.Matches(address))
                 {
                     newReader = new(embeddedResources[i]);
-                    Debug.WriteLine($"Loaded data from embedded resource at `{embeddedAddress.ToString()}`");
+                    Trace.WriteLine($"Loaded data from embedded resource at `{embeddedAddress.ToString()}`");
                     return true;
                 }
             }
@@ -299,7 +299,7 @@ namespace Data.Systems
                 {
                     USpan<byte> fileData = world.GetArray<byte>(result.entity);
                     newReader = new(fileData);
-                    Debug.WriteLine($"Loaded data from entity at `{file.address.ToString()}`");
+                    Trace.WriteLine($"Loaded data from entity at `{file.address.ToString()}`");
                     return true;
                 }
             }
@@ -314,7 +314,7 @@ namespace Data.Systems
             {
                 using System.IO.FileStream fileStream = new(addressStr, System.IO.FileMode.Open, System.IO.FileAccess.Read);
                 reader = new(fileStream);
-                Debug.WriteLine($"Loaded data from file system at `{addressStr}`");
+                Trace.WriteLine($"Loaded data from file system at `{addressStr}`");
                 return true;
             }
             else
