@@ -3,18 +3,20 @@ using Data.Systems;
 using Simulation;
 using Simulation.Tests;
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Unmanaged;
 
 namespace Data.Tests
 {
-    public class ImportTests : SimulationTests
+    public class ImportTests : SimulatorTests
     {
         protected override void SetUp()
         {
             base.SetUp();
             Simulator.AddSystem<DataImportSystem>();
+            RuntimeHelpers.RunClassConstructor(typeof(TypeTable).TypeHandle);
         }
 
         [Test, CancelAfter(1200)]
