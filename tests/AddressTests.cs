@@ -1,14 +1,14 @@
 ﻿using Unmanaged;
 
-namespace Data.Tests
+namespace Data.Systems.Tests
 {
-    public class DataReferenceTests : DataTests
+    public class AddressTests
     {
         [Test]
         public void CheckDataReferenceEquality()
         {
-            DataRequest defaultMaterial = new(World, Address.Get<DefaultMaterial>());
-            Assert.That(defaultMaterial.Address.ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
+            FixedString defaultMaterialAddress = Address.Get<DefaultMaterial>();
+            Assert.That(defaultMaterialAddress.ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
         }
 
         [Test]

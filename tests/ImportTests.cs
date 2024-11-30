@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Unmanaged;
 using Worlds;
 
-namespace Data.Tests
+namespace Data.Systems.Tests
 {
     public class ImportTests : DataTests
     {

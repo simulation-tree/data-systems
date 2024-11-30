@@ -1,4 +1,4 @@
-﻿namespace Data.Tests
+﻿namespace Data.Systems.Tests
 {
     public class ColorTests
     {

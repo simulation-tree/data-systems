@@ -18,7 +18,7 @@ namespace Data.Systems
         private readonly List<Operation> operations;
 
         readonly unsafe StartSystem ISystem.Start => new(&Start);
-        readonly unsafe UpdateSimulator ISystem.Update => new(&Update);
+        readonly unsafe UpdateSystem ISystem.Update => new(&Update);
         readonly unsafe FinishSystem ISystem.Finish => new(&Finish);
 
         [UnmanagedCallersOnly]
