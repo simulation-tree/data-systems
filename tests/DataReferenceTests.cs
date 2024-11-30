@@ -1,18 +1,9 @@
-﻿using Simulation.Tests;
-using System.Runtime.CompilerServices;
-using Unmanaged;
-using Simulation;
+﻿using Unmanaged;
 
 namespace Data.Tests
 {
-    public class DataReferenceTests : SimulatorTests
+    public class DataReferenceTests : DataTests
     {
-        protected override void SetUp()
-        {
-            base.SetUp();
-            RuntimeHelpers.RunClassConstructor(typeof(TypeTable).TypeHandle);
-        }
-
         [Test]
         public void CheckDataReferenceEquality()
         {

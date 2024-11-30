@@ -1,24 +1,14 @@
 ﻿using Collections;
-using Data.Systems;
-using Simulation;
-using Simulation.Tests;
 using System;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Unmanaged;
+using Worlds;
 
 namespace Data.Tests
 {
-    public class ImportTests : SimulatorTests
+    public class ImportTests : DataTests
     {
-        protected override void SetUp()
-        {
-            base.SetUp();
-            Simulator.AddSystem<DataImportSystem>();
-            RuntimeHelpers.RunClassConstructor(typeof(TypeTable).TypeHandle);
-        }
-
         [Test, CancelAfter(1200)]
         public async Task ReadFromStaticFileSystem(CancellationToken cancellation)
         {
@@ -45,7 +35,7 @@ namespace Data.Tests
 
             await readTomato.UntilCompliant(Simulate, cancellation);
 
-            Assert.That(readTomato.IsCompliant(), Is.True);
+            Assert.That(readTomato.Is(), Is.True);
             using BinaryReader reader = new(readTomato.Data);
             USpan<char> buffer = stackalloc char[128];
             uint length = reader.ReadUTF8Span(buffer);
@@ -68,7 +58,7 @@ namespace Data.Tests
                 Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
             }
 
-            Assert.That(readTomato.IsCompliant(), Is.False);
+            Assert.That(readTomato.Is(), Is.False);
         }
 
         [Test, CancelAfter(5000)]
@@ -93,19 +83,6 @@ namespace Data.Tests
 
             length = shaderReader.ReadUTF8Span(buffer);
             Assert.That(buffer.Slice(0, length).ToString(), Is.EqualTo("shader"));
-        }
-
-        [Test, CancelAfter(1000)]
-        public async Task FindEmbeddedResource(CancellationToken cancellation)
-        {
-            DataRequest testRequest = new(World, "*/Assets/TestData.txt");
-
-            await testRequest.UntilCompliant(Simulate, cancellation);
-
-            using BinaryReader reader = new(testRequest.Data);
-            USpan<char> buffer = stackalloc char[128];
-            uint length = reader.ReadUTF8Span(buffer);
-            Assert.That(buffer.Slice(0, length).ToString(), Contains.Substring("abacus"));
         }
     }
 }

@@ -3,31 +3,26 @@ using Data.Components;
 using Simulation;
 using Simulation.Functions;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using Unmanaged;
+using Worlds;
 
 namespace Data.Systems
 {
-    public struct DataImportSystem : ISystem
+    public readonly struct DataImportSystem : ISystem
     {
         private readonly ComponentQuery<IsDataRequest> requestQuery;
         private readonly ComponentQuery<IsDataSource> fileQuery;
-        private readonly Collections.Dictionary<Entity, uint> dataVersions;
-        private readonly Collections.List<Operation> operations;
+        private readonly Dictionary<Entity, uint> dataVersions;
+        private readonly List<Operation> operations;
 
-        private Collections.List<BinaryReader> embeddedResources;
-        private Collections.List<Address> embeddedAddresses;
-
-        readonly unsafe InitializeFunction ISystem.Initialize => new(&Initialize);
-        readonly unsafe IterateFunction ISystem.Iterate => new(&Update);
-        readonly unsafe FinalizeFunction ISystem.Finalize => new(&Finalize);
+        readonly unsafe StartSystem ISystem.Start => new(&Start);
+        readonly unsafe UpdateSimulator ISystem.Update => new(&Update);
+        readonly unsafe FinishSystem ISystem.Finish => new(&Finish);
 
         [UnmanagedCallersOnly]
-        private static void Initialize(SystemContainer container, World world)
+        private static void Start(SystemContainer container, World world)
         {
         }
 
@@ -40,7 +35,7 @@ namespace Data.Systems
         }
 
         [UnmanagedCallersOnly]
-        private static void Finalize(SystemContainer container, World world)
+        private static void Finish(SystemContainer container, World world)
         {
             if (container.World == world)
             {
@@ -57,7 +52,7 @@ namespace Data.Systems
             operations = new();
         }
 
-        private void CleanUp()
+        private readonly void CleanUp()
         {
             while (operations.Count > 0)
             {
@@ -67,18 +62,6 @@ namespace Data.Systems
 
             operations.Dispose();
             dataVersions.Dispose();
-
-            if (embeddedResources != default)
-            {
-                foreach (BinaryReader resource in embeddedResources)
-                {
-                    resource.Dispose();
-                }
-
-                embeddedResources.Dispose();
-                embeddedAddresses.Dispose();
-            }
-
             fileQuery.Dispose();
             requestQuery.Dispose();
         }
@@ -93,8 +76,8 @@ namespace Data.Systems
             foreach (var x in requestQuery)
             {
                 IsDataRequest request = x.Component1;
-                bool sourceChanged = false;
                 Entity entity = new(world, x.entity);
+                bool sourceChanged;
                 if (!dataVersions.ContainsKey(entity))
                 {
                     sourceChanged = true;
@@ -106,12 +89,7 @@ namespace Data.Systems
 
                 if (sourceChanged)
                 {
-                    if (embeddedResources == default)
-                    {
-                        FindAllEmbeddedResources();
-                    }
-
-                    //ThreadPool.QueueUserWorkItem(UpdateMeshReferencesOnModelEntity, modelEntity, false);
+                    Trace.WriteLine($"Searching for data at `{request.address}` for `{x.entity}`");
                     if (TryLoadDataOntoEntity((entity, request.address)))
                     {
                         dataVersions.AddOrSet(entity, request.version);
@@ -148,14 +126,14 @@ namespace Data.Systems
                 operation.SelectEntity(entity);
 
                 //load the bytes onto the entity
-                if (!entity.ContainsArray<byte>())
+                USpan<BinaryData> readData = reader.GetBytes().As<BinaryData>();
+                if (!entity.ContainsArray<BinaryData>())
                 {
-                    operation.CreateArray<byte>(reader.GetBytes());
+                    operation.CreateArray(readData);
                 }
                 else
                 {
-                    USpan<byte> readData = reader.GetBytes();
-                    operation.ResizeArray<byte>(readData.Length);
+                    operation.ResizeArray<BinaryData>(readData.Length);
                     operation.SetArrayElements(0, readData);
                 }
 
@@ -181,115 +159,11 @@ namespace Data.Systems
             }
         }
 
-        [UnconditionalSuppressMessage("Aot", "IL2026")]
-        private void FindAllEmbeddedResources()
-        {
-            embeddedResources = new();
-            embeddedAddresses = new();
-            System.Collections.Generic.Dictionary<int, Assembly> sourceAssemblies = [];
-            System.Collections.Generic.Dictionary<string, Assembly> allAssemblies = new();
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                string assemblyName = assembly.GetName().Name ?? string.Empty;
-                if (IgnoredAssembly(assemblyName)) continue;
-
-                allAssemblies.TryAdd(assemblyName, assembly);
-                foreach (AssemblyName referencedAssemblyName in assembly.GetReferencedAssemblies())
-                {
-                    assemblyName = referencedAssemblyName.Name ?? string.Empty;
-                    if (IgnoredAssembly(assemblyName)) continue;
-
-                    if (allAssemblies.ContainsKey(assemblyName))
-                    {
-                        continue;
-                    }
-
-                    try
-                    {
-                        Assembly referencedAssembly = Assembly.Load(referencedAssemblyName);
-                        allAssemblies.Add(assemblyName, referencedAssembly);
-                    }
-                    catch (Exception)
-                    {
-                        //ignore
-                    }
-                }
-            }
-
-            static bool IgnoredAssembly(string assemblyName)
-            {
-                if (assemblyName.StartsWith("TestCentric"))
-                {
-                    return true;
-                }
-
-                if (assemblyName == "System.Private.Xml")
-                {
-                    return true;
-                }
-
-                return false;
-            }
-
-            foreach (KeyValuePair<string, Assembly> pair in allAssemblies)
-            {
-                Assembly assembly = pair.Value;
-                string assemblyName = pair.Key;
-                string[] resources = assembly.GetManifestResourceNames();
-                foreach (string resourcePath in resources)
-                {
-                    if (resourcePath.StartsWith("ILLink"))
-                    {
-                        continue;
-                    }
-
-                    if (resourcePath.StartsWith("Microsoft.VisualStudio.TestPlatform"))
-                    {
-                        continue;
-                    }
-
-                    if (resourcePath.StartsWith("FxResources"))
-                    {
-                        continue;
-                    }
-
-                    FixedString resourcePathText = resourcePath;
-                    int resourcePathHash = resourcePathText.GetHashCode();
-                    if (sourceAssemblies.TryGetValue(resourcePathHash, out Assembly? existing))
-                    {
-                        Trace.WriteLine($"Duplicate resource with same address at `{resourcePathText}` from `{assemblyName}` was ignored, data from `{existing.GetName()}` is used instead");
-                    }
-                    else
-                    {
-                        System.IO.Stream stream = assembly.GetManifestResourceStream(resourcePath) ?? throw new Exception("Impossible");
-                        stream.Position = 0;
-                        BinaryReader reader = new(stream);
-                        embeddedResources.Add(reader);
-                        embeddedAddresses.Add(new Address(resourcePathText));
-                        sourceAssemblies.Add(resourcePathHash, assembly);
-                        Trace.WriteLine($"Registered embedded resource at `{resourcePathText}` from `{assemblyName}`");
-                    }
-                }
-            }
-        }
-
         /// <summary>
         /// Attempts to import data from the given address into a new reader.
         /// </summary>
         private readonly bool TryImport(World world, USpan<char> address, out BinaryReader newReader)
         {
-            //search embedded resources
-            for (uint i = 0; i < embeddedAddresses.Count; i++)
-            {
-                Address embeddedAddress = embeddedAddresses[i];
-                if (embeddedAddress.Matches(address))
-                {
-                    newReader = new(embeddedResources[i]);
-                    Trace.WriteLine($"Loaded data from embedded resource at `{embeddedAddress.ToString()}`");
-                    return true;
-                }
-            }
-
             //search world
             fileQuery.Update(world);
             foreach (var result in fileQuery)
@@ -297,9 +171,9 @@ namespace Data.Systems
                 IsDataSource file = result.Component1;
                 if (new Address(file.address).Matches(address))
                 {
-                    USpan<byte> fileData = world.GetArray<byte>(result.entity);
+                    USpan<byte> fileData = world.GetArray<BinaryData>(result.entity).As<byte>();
                     newReader = new(fileData);
-                    Trace.WriteLine($"Loaded data from entity at `{file.address.ToString()}`");
+                    Trace.WriteLine($"Loaded data from entity `{result.entity}` for address `{file.address}`");
                     return true;
                 }
             }
