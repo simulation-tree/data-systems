@@ -123,18 +123,18 @@ namespace Data.Systems
             if (TryImport(world, buffer, out BinaryReader reader))
             {
                 Operation operation = new();
-                operation.SelectEntity(entity);
+                Operation.SelectedEntity selectedEntity = operation.SelectEntity(entity);
 
                 //load the bytes onto the entity
                 USpan<BinaryData> readData = reader.GetBytes().As<BinaryData>();
                 if (!entity.ContainsArray<BinaryData>())
                 {
-                    operation.CreateArray(readData);
+                    selectedEntity.CreateArray(readData);
                 }
                 else
                 {
-                    operation.ResizeArray<BinaryData>(readData.Length);
-                    operation.SetArrayElements(0, readData);
+                    selectedEntity.ResizeArray<BinaryData>(readData.Length);
+                    selectedEntity.SetArrayElements(0, readData);
                 }
 
                 reader.Dispose();
@@ -143,11 +143,11 @@ namespace Data.Systems
                 if (entity.TryGetComponent(out IsData data))
                 {
                     data.version++;
-                    operation.SetComponent(data);
+                    selectedEntity.SetComponent(data);
                 }
                 else
                 {
-                    operation.AddComponent(new IsData());
+                    selectedEntity.AddComponent(new IsData());
                 }
 
                 operations.Add(operation);
