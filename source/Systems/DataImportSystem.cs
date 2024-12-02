@@ -161,9 +161,26 @@ namespace Data.Systems
 
         /// <summary>
         /// Attempts to import data from the given address into a new reader.
+        /// <para>
+        /// The output <paramref name="newReader"/> must be disposed after completing its use.
+        /// </para>
         /// </summary>
         private readonly bool TryImport(World world, USpan<char> address, out BinaryReader newReader)
         {
+            //search embedded resources
+            foreach (EmbeddedAddress embeddedResource in EmbeddedAddress.All)
+            {
+                if (embeddedResource.address.Matches(address))
+                {
+                    string resourcePath = $"{embeddedResource.assembly.GetName().Name}.{embeddedResource.address.ToString().Replace('/', '.')}";
+                    System.IO.Stream stream = embeddedResource.assembly.GetManifestResourceStream(resourcePath) ?? throw new Exception($"Embedded resource at `{resourcePath}` could not be found");
+                    stream.Position = 0;
+                    newReader = new(stream);
+                    Trace.WriteLine($"Loaded data from embedded resource at `{embeddedResource.address}`");
+                    return true;
+                }
+            }
+
             //search world
             fileQuery.Update(world);
             foreach (var result in fileQuery)

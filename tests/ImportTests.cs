@@ -84,5 +84,39 @@ namespace Data.Systems.Tests
             length = shaderReader.ReadUTF8Span(buffer);
             Assert.That(buffer.Slice(0, length).ToString(), Is.EqualTo("shader"));
         }
+
+        [Test, CancelAfter(5000)]
+        public async Task LoadFromFileSystem(CancellationToken cancellation)
+        {
+            const string fileName = "Assets/TestData.txt";
+            DataRequest request = new(World, fileName);
+
+            await request.UntilCompliant(Simulate, cancellation);
+
+            using BinaryReader reader = new(request.Data);
+            using Array<char> buffer = new(reader.Length);
+            USpan<char> span = buffer.AsSpan();
+            uint length = reader.ReadUTF8Span(span);
+            USpan<char> fileText = span.Slice(0, length);
+            Assert.That(fileText.ToString(), Contains.Substring("abacus"));
+        }
+
+        [Test, CancelAfter(5000)]
+        public async Task LoadEmbeddedResource(CancellationToken cancellation)
+        {
+            EmbeddedAddress.Register(typeof(ImportTests).Assembly, "Assets/EmbeddedTestData.txt");
+
+            const string fileName = "*/EmbeddedTestData.txt";
+            DataRequest request = new(World, fileName);
+
+            await request.UntilCompliant(Simulate, cancellation);
+
+            using BinaryReader reader = new(request.Data);
+            using Array<char> buffer = new(reader.Length);
+            USpan<char> span = buffer.AsSpan();
+            uint length = reader.ReadUTF8Span(span);
+            USpan<char> fileText = span.Slice(0, length);
+            Assert.That(fileText.ToString(), Contains.Substring("i am an embedded resource"));
+        }
     }
 }
