@@ -1,46 +1,35 @@
 ﻿using Collections;
 using Data.Components;
 using Simulation;
-using Simulation.Functions;
 using System;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using Unmanaged;
 using Worlds;
 
 namespace Data.Systems
 {
-    public readonly struct DataImportSystem : ISystem
+    public readonly partial struct DataImportSystem : ISystem
     {
         private readonly ComponentQuery<IsDataRequest> requestQuery;
         private readonly ComponentQuery<IsDataSource> fileQuery;
         private readonly Dictionary<Entity, uint> dataVersions;
         private readonly List<Operation> operations;
 
-        readonly unsafe StartSystem ISystem.Start => new(&Start);
-        readonly unsafe UpdateSystem ISystem.Update => new(&Update);
-        readonly unsafe FinishSystem ISystem.Finish => new(&Finish);
-
-        [UnmanagedCallersOnly]
-        private static void Start(SystemContainer container, World world)
+        void ISystem.Start(in SystemContainer systemContainer, in World world)
         {
         }
 
-        [UnmanagedCallersOnly]
-        private static void Update(SystemContainer container, World world, TimeSpan delta)
+        void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
-            ref DataImportSystem system = ref container.Read<DataImportSystem>();
-            system.Update(world);
-            system.PerformInstructions(world);
+            Update(world);
+            PerformInstructions(world);
         }
 
-        [UnmanagedCallersOnly]
-        private static void Finish(SystemContainer container, World world)
+        void ISystem.Finish(in SystemContainer systemContainer, in World world)
         {
-            if (container.World == world)
+            if (systemContainer.World == world)
             {
-                ref DataImportSystem system = ref container.Read<DataImportSystem>();
-                system.CleanUp();
+                CleanUp();
             }
         }
 
