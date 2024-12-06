@@ -15,9 +15,8 @@ namespace Data.Systems.Tests
             ComponentType.Register<IsDataSource>();
             ComponentType.Register<IsData>();
             ComponentType.Register<IsProgram>();
-            ComponentType.Register<ProgramAllocation>();
             ArrayType.Register<BinaryData>();
-            Simulator.AddSystem<DataImportSystem>();
+            Simulator.AddSystem(new DataImportSystem());
         }
     }
 }

@@ -104,7 +104,7 @@ namespace Data.Systems.Tests
         [Test, CancelAfter(5000)]
         public async Task LoadEmbeddedResource(CancellationToken cancellation)
         {
-            EmbeddedAddress.Register(typeof(ImportTests).Assembly, "Assets/EmbeddedTestData.txt");
+            EmbeddedAddress.Register(GetType().Assembly, "Assets/EmbeddedTestData.txt");
 
             const string fileName = "*/EmbeddedTestData.txt";
             DataRequest request = new(World, fileName);
