@@ -59,18 +59,17 @@ namespace Data.Systems
 
         void ISystem.Finish(in SystemContainer systemContainer, in World world)
         {
-        }
-
-        void IDisposable.Dispose()
-        {
-            while (operations.Count > 0)
+            if (systemContainer.World == world)
             {
-                Operation operation = operations.RemoveAt(0);
-                operation.Dispose();
-            }
+                while (operations.Count > 0)
+                {
+                    Operation operation = operations.RemoveAt(0);
+                    operation.Dispose();
+                }
 
-            operations.Dispose();
-            dataVersions.Dispose();
+                operations.Dispose();
+                dataVersions.Dispose();
+            }
         }
 
         private readonly void PerformInstructions(World world)
