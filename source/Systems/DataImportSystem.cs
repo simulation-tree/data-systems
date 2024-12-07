@@ -13,14 +13,20 @@ namespace Data.Systems
         private readonly Dictionary<Entity, uint> dataVersions;
         private readonly List<Operation> operations;
 
-        public DataImportSystem()
+        private DataImportSystem(Dictionary<Entity, uint> dataVersions, List<Operation> operations)
         {
-            dataVersions = new();
-            operations = new();
+            this.dataVersions = dataVersions;
+            this.operations = operations;
         }
 
         void ISystem.Start(in SystemContainer systemContainer, in World world)
         {
+            if (systemContainer.World == world)
+            {
+                Dictionary<Entity, uint> dataVersions = new();
+                List<Operation> operations = new();
+                systemContainer.Write(new DataImportSystem(dataVersions, operations));
+            }
         }
 
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
