@@ -13,8 +13,8 @@ namespace Data.Systems.Tests
         public async Task ReadFromStaticFileSystem(CancellationToken cancellation)
         {
             const string fileName = "test.txt";
-            DataSource file = new(World, fileName, "Hello, World!");
-            DataRequest request = new(World, fileName);
+            DataSource file = new(world, fileName, "Hello, World!");
+            DataRequest request = new(world, fileName);
 
             await request.UntilCompliant(Simulate, cancellation);
 
@@ -30,8 +30,8 @@ namespace Data.Systems.Tests
         public async Task FindEntityFile(CancellationToken cancellation)
         {
             string randomStr = Guid.NewGuid().ToString();
-            DataSource file = new(World, "tomato", randomStr);
-            DataRequest readTomato = new(World, "tomato");
+            DataSource file = new(world, "tomato", randomStr);
+            DataRequest readTomato = new(world, "tomato");
 
             await readTomato.UntilCompliant(Simulate, cancellation);
 
@@ -46,7 +46,7 @@ namespace Data.Systems.Tests
         [Test, CancelAfter(4000)]
         public async Task DontFindThis(CancellationToken cancellation)
         {
-            DataRequest readTomato = new(World, "tomato");
+            DataRequest readTomato = new(world, "tomato");
             CancellationTokenSource cts = new(800);
             try
             {
@@ -64,13 +64,13 @@ namespace Data.Systems.Tests
         [Test, CancelAfter(5000)]
         public async Task FindFileWithWildcard(CancellationToken cancellation)
         {
-            DataSource sourceMat = new(World, "Assets/Materials/unlit.mat", "material");
-            DataSource sourceJson = new(World, "Assets/Materials/unlit.json", "json");
-            DataSource sourceShader = new(World, "Assets/Materials/unlit.shader", "shader");
-            DataSource sourceTxt = new(World, "Assets/Materials/unlit.txt", "text");
+            DataSource sourceMat = new(world, "Assets/Materials/unlit.mat", "material");
+            DataSource sourceJson = new(world, "Assets/Materials/unlit.json", "json");
+            DataSource sourceShader = new(world, "Assets/Materials/unlit.shader", "shader");
+            DataSource sourceTxt = new(world, "Assets/Materials/unlit.txt", "text");
 
-            DataRequest matRequest = new(World, "*/unlit.mat");
-            DataRequest anyShaderRequest = new(World, "*.shader");
+            DataRequest matRequest = new(world, "*/unlit.mat");
+            DataRequest anyShaderRequest = new(world, "*.shader");
 
             await matRequest.UntilCompliant(Simulate, cancellation);
             await anyShaderRequest.UntilCompliant(Simulate, cancellation);
@@ -89,7 +89,7 @@ namespace Data.Systems.Tests
         public async Task LoadFromFileSystem(CancellationToken cancellation)
         {
             const string fileName = "Assets/TestData.txt";
-            DataRequest request = new(World, fileName);
+            DataRequest request = new(world, fileName);
 
             await request.UntilCompliant(Simulate, cancellation);
 
@@ -107,7 +107,7 @@ namespace Data.Systems.Tests
             EmbeddedAddress.Register(GetType().Assembly, "Assets/EmbeddedTestData.txt");
 
             const string fileName = "*/EmbeddedTestData.txt";
-            DataRequest request = new(World, fileName);
+            DataRequest request = new(world, fileName);
 
             await request.UntilCompliant(Simulate, cancellation);
 

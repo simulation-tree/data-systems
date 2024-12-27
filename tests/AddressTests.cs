@@ -1,5 +1,4 @@
-﻿using System;
-using Unmanaged;
+﻿using Unmanaged;
 
 namespace Data.Systems.Tests
 {

@@ -93,6 +93,7 @@ namespace Data.Systems
             World world = entity.GetWorld();
             if (TryLoad(world, address, out BinaryReader newReader))
             {
+                Schema schema = world.Schema;
                 Operation operation = new();
                 Operation.SelectedEntity selectedEntity = operation.SelectEntity(entity);
 
@@ -100,12 +101,12 @@ namespace Data.Systems
                 USpan<BinaryData> readData = newReader.GetBytes().As<BinaryData>();
                 if (!entity.ContainsArray<BinaryData>())
                 {
-                    selectedEntity.CreateArray(readData);
+                    selectedEntity.CreateArray(readData, schema);
                 }
                 else
                 {
-                    selectedEntity.ResizeArray<BinaryData>(readData.Length);
-                    selectedEntity.SetArrayElements(0, readData);
+                    selectedEntity.ResizeArray<BinaryData>(readData.Length, schema);
+                    selectedEntity.SetArrayElements(0, readData, schema);
                 }
 
                 newReader.Dispose();
@@ -114,11 +115,11 @@ namespace Data.Systems
                 ref IsData data = ref entity.TryGetComponent<IsData>(out bool contains);
                 if (contains)
                 {
-                    selectedEntity.SetComponent(new IsData(data.version + 1));
+                    selectedEntity.SetComponent(new IsData(data.version + 1), schema);
                 }
                 else
                 {
-                    selectedEntity.AddComponent(new IsData());
+                    selectedEntity.AddComponent(new IsData(), schema);
                 }
 
                 operations.Add(operation);
