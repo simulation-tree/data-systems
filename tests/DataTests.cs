@@ -8,10 +8,10 @@ namespace Data.Systems.Tests
     {
         static DataTests()
         {
-            TypeLayout.Register<IsDataRequest>("IsDataRequest");
-            TypeLayout.Register<IsDataSource>("IsDataSource");
-            TypeLayout.Register<IsData>("IsData");
-            TypeLayout.Register<BinaryData>("BinaryData");
+            TypeLayout.Register<IsDataRequest>();
+            TypeLayout.Register<IsDataSource>();
+            TypeLayout.Register<IsData>();
+            TypeLayout.Register<BinaryData>();
         }
 
         protected override void SetUp()
