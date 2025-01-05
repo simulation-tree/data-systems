@@ -12,7 +12,7 @@ namespace Data.Systems.Tests
         [Test, CancelAfter(1200)]
         public async Task ReadFromStaticFileSystem(CancellationToken cancellation)
         {
-            const string fileName = "test.txt";
+            Address fileName = "test.txt";
             DataSource file = new(world, fileName, "Hello, World!");
             DataRequest request = new(world, fileName);
 

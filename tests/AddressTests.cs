@@ -1,13 +1,11 @@
-﻿using Unmanaged;
-
-namespace Data.Systems.Tests
+﻿namespace Data.Systems.Tests
 {
     public class AddressTests
     {
         [Test]
         public void CheckDataReferenceEquality()
         {
-            FixedString defaultMaterialAddress = Address.Get<DefaultMaterial>();
+            Address defaultMaterialAddress = Address.Get<DefaultMaterial>();
             Assert.That(defaultMaterialAddress.ToString(), Is.EqualTo("Assets/Materials/unlit.mat"));
         }
 
@@ -20,7 +18,7 @@ namespace Data.Systems.Tests
 
         public readonly struct DefaultMaterial : IDataReference
         {
-            FixedString IDataReference.Value => "Assets/Materials/unlit.mat";
+            readonly Address IDataReference.Value => "Assets/Materials/unlit.mat";
         }
     }
 }

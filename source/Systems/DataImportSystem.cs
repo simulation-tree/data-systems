@@ -88,7 +88,7 @@ namespace Data.Systems
             }
         }
 
-        private readonly unsafe bool TryLoadDataOntoEntity(Entity entity, FixedString address)
+        private readonly unsafe bool TryLoadDataOntoEntity(Entity entity, Address address)
         {
             World world = entity.GetWorld();
             if (TryLoad(world, address, out BinaryReader newReader))
@@ -137,7 +137,7 @@ namespace Data.Systems
         /// The output <paramref name="newReader"/> must be disposed after completing its use.
         /// </para>
         /// </summary>
-        private static bool TryLoad(World world, FixedString address, out BinaryReader newReader)
+        private static bool TryLoad(World world, Address address, out BinaryReader newReader)
         {
             if (TryLoadFromEmbeddedResources(address, out newReader))
             {
@@ -152,7 +152,7 @@ namespace Data.Systems
             return TryLoadFromFileSystem(address, out newReader);
         }
 
-        private static bool TryLoadFromEmbeddedResources(FixedString address, out BinaryReader newReader)
+        private static bool TryLoadFromEmbeddedResources(Address address, out BinaryReader newReader)
         {
             foreach (EmbeddedAddress embeddedResource in EmbeddedAddress.All)
             {
@@ -172,7 +172,7 @@ namespace Data.Systems
             return false;
         }
 
-        private static bool TryLoadFromWorld(World world, FixedString address, out BinaryReader newReader)
+        private static bool TryLoadFromWorld(World world, Address address, out BinaryReader newReader)
         {
             ComponentQuery<IsDataSource> sourceQuery = new(world);
             foreach (var r in sourceQuery)
@@ -191,7 +191,7 @@ namespace Data.Systems
             return false;
         }
 
-        private static bool TryLoadFromFileSystem(FixedString address, out BinaryReader newReader)
+        private static bool TryLoadFromFileSystem(Address address, out BinaryReader newReader)
         {
             string addressStr = address.ToString();
             if (System.IO.File.Exists(addressStr))
