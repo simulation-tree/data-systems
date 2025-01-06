@@ -16,7 +16,7 @@ namespace Data.Systems.Tests
             DataSource file = new(world, fileName, "Hello, World!");
             DataRequest request = new(world, fileName);
 
-            await request.UntilCompliant(Simulate, cancellation);
+            await request.UntilLoaded(Simulate, cancellation);
 
             using BinaryReader reader = new(request.Data);
             using Array<char> buffer = new(reader.Length);
@@ -33,7 +33,7 @@ namespace Data.Systems.Tests
             DataSource file = new(world, "tomato", randomStr);
             DataRequest readTomato = new(world, "tomato");
 
-            await readTomato.UntilCompliant(Simulate, cancellation);
+            await readTomato.UntilLoaded(Simulate, cancellation);
 
             Assert.That(readTomato.Is(), Is.True);
             using BinaryReader reader = new(readTomato.Data);
@@ -50,7 +50,7 @@ namespace Data.Systems.Tests
             CancellationTokenSource cts = new(800);
             try
             {
-                await readTomato.UntilCompliant(Simulate, cts.Token);
+                await readTomato.UntilLoaded(Simulate, cts.Token);
                 Assert.Fail("Should not have found the file.");
             }
             catch (Exception ex)
@@ -58,7 +58,7 @@ namespace Data.Systems.Tests
                 Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
             }
 
-            Assert.That(readTomato.Is(), Is.False);
+            Assert.That(readTomato.IsLoaded, Is.False);
         }
 
         [Test, CancelAfter(5000)]
@@ -72,8 +72,8 @@ namespace Data.Systems.Tests
             DataRequest matRequest = new(world, "*/unlit.mat");
             DataRequest anyShaderRequest = new(world, "*.shader");
 
-            await matRequest.UntilCompliant(Simulate, cancellation);
-            await anyShaderRequest.UntilCompliant(Simulate, cancellation);
+            await matRequest.UntilLoaded(Simulate, cancellation);
+            await anyShaderRequest.UntilLoaded(Simulate, cancellation);
 
             using BinaryReader matReader = new(matRequest.Data);
             using BinaryReader shaderReader = new(anyShaderRequest.Data);
@@ -91,7 +91,7 @@ namespace Data.Systems.Tests
             const string fileName = "Assets/TestData.txt";
             DataRequest request = new(world, fileName);
 
-            await request.UntilCompliant(Simulate, cancellation);
+            await request.UntilLoaded(Simulate, cancellation);
 
             using BinaryReader reader = new(request.Data);
             using Array<char> buffer = new(reader.Length);
@@ -109,7 +109,7 @@ namespace Data.Systems.Tests
             const string fileName = "*/EmbeddedTestData.txt";
             DataRequest request = new(world, fileName);
 
-            await request.UntilCompliant(Simulate, cancellation);
+            await request.UntilLoaded(Simulate, cancellation);
 
             using BinaryReader reader = new(request.Data);
             using Array<char> buffer = new(reader.Length);

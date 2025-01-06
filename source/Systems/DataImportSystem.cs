@@ -49,7 +49,7 @@ namespace Data.Systems
                 if (sourceChanged)
                 {
                     Trace.WriteLine($"Searching for data at `{component.address}` for `{entity}`");
-                    if (TryLoadDataOntoEntity(entity, component.address))
+                    if (TryLoadDataOntoEntity(entity, component.address, component.version))
                     {
                         dataVersions.AddOrSet(entity, component.version);
                     }
@@ -88,7 +88,7 @@ namespace Data.Systems
             }
         }
 
-        private readonly unsafe bool TryLoadDataOntoEntity(Entity entity, Address address)
+        private readonly unsafe bool TryLoadDataOntoEntity(Entity entity, Address address, uint version)
         {
             World world = entity.GetWorld();
             if (TryLoad(world, address, out BinaryReader newReader))
@@ -115,11 +115,11 @@ namespace Data.Systems
                 ref IsData data = ref entity.TryGetComponent<IsData>(out bool contains);
                 if (contains)
                 {
-                    selectedEntity.SetComponent(new IsData(data.version + 1), schema);
+                    selectedEntity.SetComponent(new IsData(version), schema);
                 }
                 else
                 {
-                    selectedEntity.AddComponent(new IsData(), schema);
+                    selectedEntity.AddComponent(new IsData(version), schema);
                 }
 
                 operations.Add(operation);
