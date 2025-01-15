@@ -1,6 +1,6 @@
 ﻿using Data.Components;
 using Simulation.Tests;
-using Worlds;
+using Types;
 
 namespace Data.Systems.Tests
 {
