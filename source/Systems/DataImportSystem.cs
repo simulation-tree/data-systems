@@ -11,9 +11,9 @@ namespace Data.Systems
     public readonly partial struct DataImportSystem : ISystem
     {
         private readonly Dictionary<Entity, uint> dataVersions;
-        private readonly List<Operation> operations;
+        private readonly Stack<Operation> operations;
 
-        private DataImportSystem(Dictionary<Entity, uint> dataVersions, List<Operation> operations)
+        private DataImportSystem(Dictionary<Entity, uint> dataVersions, Stack<Operation> operations)
         {
             this.dataVersions = dataVersions;
             this.operations = operations;
@@ -24,7 +24,7 @@ namespace Data.Systems
             if (systemContainer.World == world)
             {
                 Dictionary<Entity, uint> dataVersions = new();
-                List<Operation> operations = new();
+                Stack<Operation> operations = new();
                 systemContainer.Write(new DataImportSystem(dataVersions, operations));
             }
         }
@@ -67,9 +67,8 @@ namespace Data.Systems
         {
             if (systemContainer.World == world)
             {
-                while (operations.Count > 0)
+                while (operations.TryPop(out Operation operation))
                 {
-                    Operation operation = operations.RemoveAt(0);
                     operation.Dispose();
                 }
 
@@ -80,9 +79,8 @@ namespace Data.Systems
 
         private readonly void PerformInstructions(World world)
         {
-            while (operations.Count > 0)
+            while (operations.TryPop(out Operation operation))
             {
-                Operation operation = operations.RemoveAt(0);
                 world.Perform(operation);
                 operation.Dispose();
             }
@@ -122,7 +120,7 @@ namespace Data.Systems
                     selectedEntity.AddComponent(new IsData(version), schema);
                 }
 
-                operations.Add(operation);
+                operations.Push(operation);
                 return true;
             }
             else
