@@ -45,7 +45,7 @@ namespace Data.Systems.Tests
         }
 
         [Test, CancelAfter(4000)]
-        public async Task DontFindThis(CancellationToken cancellation)
+        public async Task DontFindThis()
         {
             DataRequest readTomato = new(world, "tomato");
             CancellationTokenSource cts = new(800);
