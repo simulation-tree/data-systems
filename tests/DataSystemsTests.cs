@@ -8,7 +8,7 @@ namespace Data.Systems.Tests
     {
         static DataSystemsTests()
         {
-            TypeRegistry.Load<Data.TypeBank>();
+            TypeRegistry.Load<Data.Core.TypeBank>();
         }
 
         protected override void SetUp()
@@ -20,7 +20,7 @@ namespace Data.Systems.Tests
         protected override Schema CreateSchema()
         {
             Schema schema = base.CreateSchema();
-            schema.Load<Data.SchemaBank>();
+            schema.Load<Data.Core.SchemaBank>();
             return schema;
         }
     }
