@@ -32,6 +32,7 @@ namespace Data.Systems
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
             ComponentQuery<IsDataRequest> requestQuery = new(world);
+            requestQuery.ExcludeDisabled(true);
             foreach (var r in requestQuery)
             {
                 bool sourceChanged;
@@ -173,6 +174,7 @@ namespace Data.Systems
         private static bool TryLoadFromWorld(World world, Address address, out BinaryReader newReader)
         {
             ComponentQuery<IsDataSource> sourceQuery = new(world);
+            sourceQuery.ExcludeDisabled(true);
             foreach (var r in sourceQuery)
             {
                 ref IsDataSource source = ref r.component1;
