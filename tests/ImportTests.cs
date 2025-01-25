@@ -1,4 +1,5 @@
 ﻿using Collections;
+using Simulation;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,7 +8,7 @@ using Worlds;
 
 namespace Data.Systems.Tests
 {
-    public class ImportTests : DataTests
+    public class ImportTests : DataSystemsTests
     {
         [Test, CancelAfter(1200)]
         public async Task ReadFromStaticFileSystem(CancellationToken cancellation)
