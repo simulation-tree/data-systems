@@ -31,6 +31,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <None Include="..\README.md">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\..\data\core\Data.Core.csproj" />
 		<ProjectReference Include="..\..\simulation\core\Simulation.Core.csproj" />
 		<ProjectReference Include="..\..\unmanaged\source\Unmanaged.csproj" />
