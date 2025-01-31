@@ -41,7 +41,7 @@
 		<ProjectReference Include="..\..\simulation\tests\Simulation.Tests.csproj" />
 		<ProjectReference Include="..\..\unmanaged\source\Unmanaged.csproj" />
 		<ProjectReference Include="..\..\unmanaged\tests\Unmanaged.Tests.csproj" />
-		<ProjectReference Include="..\source\Data.Systems.csproj" />
+		<ProjectReference Include="..\source\Requests.Systems.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

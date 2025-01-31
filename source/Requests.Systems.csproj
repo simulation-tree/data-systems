@@ -5,16 +5,13 @@
 		<ImplicitUsings>disable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-		<Title>Data Systems</Title>
+		<Title>Request Systems</Title>
 		<Authors>popcron</Authors>
 		<Company>game-simulations</Company>
-		<RepositoryUrl>https://github.com/game-simulations/data-systems/</RepositoryUrl>
+		<RepositoryUrl>https://github.com/game-simulations/request-systems/</RepositoryUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Description>Systems that load data</Description>
+		<Description>Loads requests</Description>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
 		<IsAotCompatible>True</IsAotCompatible>
 		<IsTrimmable>True</IsTrimmable>
 		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
@@ -31,14 +28,15 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <None Include="..\README.md">
-	    <Pack>True</Pack>
-	    <PackagePath>\</PackagePath>
-	  </None>
+		<None Include="..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\data\core\Data.Core.csproj" />
+		<ProjectReference Include="..\..\requests\source\Requests.csproj" />
 		<ProjectReference Include="..\..\simulation\core\Simulation.Core.csproj" />
 		<ProjectReference Include="..\..\unmanaged\source\Unmanaged.csproj" />
 		<ProjectReference Include="..\..\collections\source\Collections.csproj" />

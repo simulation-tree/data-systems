@@ -1,26 +1,29 @@
 ﻿using Simulation.Tests;
 using Types;
 using Worlds;
+using Data;
 
-namespace Data.Systems.Tests
+namespace Requests.Systems.Tests
 {
-    public abstract class DataSystemsTests : SimulationTests
+    public abstract class RequestSystemsTests : SimulationTests
     {
-        static DataSystemsTests()
+        static RequestSystemsTests()
         {
             TypeRegistry.Load<DataTypeBank>();
+            TypeRegistry.Load<RequestsTypeBank>();
         }
 
         protected override void SetUp()
         {
             base.SetUp();
-            simulator.AddSystem<DataImportSystem>();
+            simulator.AddSystem<RequestLoadingSystem>();
         }
 
         protected override Schema CreateSchema()
         {
             Schema schema = base.CreateSchema();
             schema.Load<DataSchemaBank>();
+            schema.Load<RequestsSchemaBank>();
             return schema;
         }
     }

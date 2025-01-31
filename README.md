@@ -1,16 +1,18 @@
-# Data Systems
+# Request Systems
 
-Implements `data` with a system that imports data from various sources.
+Implements `requests` with a system that imports data from various sources.
 
 ### Loading from an entity
 
 ```cs
-DataSource source = new(world, "fileA", "Some data is here");
-DataRequest request = new(world, "fileA");
+Datum source = new(world, "fileA");
+source.WriteUTF8("Some data here!");
+
+Request request = new(world, "fileA");
 
 simulator.Update();
 
-using BinaryReader reader = new(request.Data);
+using BinaryReader reader = new(request.GetBinaryData());
 USpan<char> dataBuffer = stackalloc char[32];
 uint textLength = reader.ReadUTF8Span(dataBuffer);
 string loadedData = dataBuffer.Slice(0, textLength).ToString();
@@ -20,11 +22,11 @@ Console.WriteLine($"Loaded data from an entity {loadedData}");
 ### Loading from file on disk
 
 ```cs
-DataRequest request = new(world, "C:/fileB.txt");
+Request request = new(world, "C:/fileB.txt");
 
 simulator.Update();
 
-using BinaryReader reader = new(request.Data);
+using BinaryReader reader = new(request.GetBinaryData());
 USpan<char> dataBuffer = stackalloc char[32];
 uint textLength = reader.ReadUTF8Span(dataBuffer);
 string loadedData = dataBuffer.Slice(0, textLength).ToString();
@@ -33,24 +35,22 @@ Console.WriteLine($"Loaded data from a file {loadedData}");
 
 ### Loading from an embedded resource
 
-Assuming there is a file `SomeDataFile.txt` in the `Assets` folder of the project,
-marked as an embedded resource:
+Embedded resources in a project can be loaded if their address is registered:
 ```cs
-public readonly struct SomeDataFile : IDataReference
+public readonly struct MyEmbeddedResources : IEmbeddedResourceBank
 {
-    static SomeDataFile()
+    void IEmbeddedResourceBank.Load(Register register)
     {
-        EmbeddedAddress.Register<SomeDataFile>();
+        register.Invoke("Assets/test.txt");
     }
-
-    readonly Address IDataReference.Value => "Assets/SomeDataFile.txt";
 }
 
-DataRequest request = new(world, Address.Get<SomeDataFile>());
+EmbeddedResourceRegistry.Load<MyEmbeddedResources>();
+Request request = new(world, "Assets/test.txt");
 
 simulator.Update();
 
-using BinaryReader reader = new(request.Data);
+using BinaryReader reader = new(request.GetBinaryData());
 USpan<char> dataBuffer = stackalloc char[32];
 uint textLength = reader.ReadUTF8Span(dataBuffer);
 string loadedData = dataBuffer.Slice(0, textLength).ToString();

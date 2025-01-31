@@ -1,19 +1,22 @@
 ﻿using Collections;
+using Data;
 using Data.Components;
+using Requests.Components;
 using Simulation;
 using System;
 using System.Diagnostics;
+using System.Reflection;
 using Unmanaged;
 using Worlds;
 
-namespace Data.Systems
+namespace Requests.Systems
 {
-    public readonly partial struct DataImportSystem : ISystem
+    public readonly partial struct RequestLoadingSystem : ISystem
     {
         private readonly Dictionary<Entity, uint> dataVersions;
         private readonly Stack<Operation> operations;
 
-        private DataImportSystem(Dictionary<Entity, uint> dataVersions, Stack<Operation> operations)
+        private RequestLoadingSystem(Dictionary<Entity, uint> dataVersions, Stack<Operation> operations)
         {
             this.dataVersions = dataVersions;
             this.operations = operations;
@@ -25,38 +28,43 @@ namespace Data.Systems
             {
                 Dictionary<Entity, uint> dataVersions = new();
                 Stack<Operation> operations = new();
-                systemContainer.Write(new DataImportSystem(dataVersions, operations));
+                systemContainer.Write(new RequestLoadingSystem(dataVersions, operations));
             }
         }
 
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
-            ComponentQuery<IsDataRequest> requestQuery = new(world);
+            ComponentQuery<RequestComponent> requestQuery = new(world);
             requestQuery.ExcludeDisabled(true);
             foreach (var r in requestQuery)
             {
-                bool sourceChanged;
-                ref IsDataRequest component = ref r.component1;
-                Entity entity = new(world, r.entity);
-                if (!dataVersions.ContainsKey(entity))
+                ref RequestComponent component = ref r.component1;
+                if (component.status == RequestStatus.Pending)
                 {
-                    sourceChanged = true;
-                }
-                else
-                {
-                    sourceChanged = dataVersions[entity] != component.version;
-                }
-
-                if (sourceChanged)
-                {
-                    Trace.WriteLine($"Searching for data at `{component.address}` for `{entity}`");
-                    if (TryLoadDataOntoEntity(entity, component.address, component.version))
+                    bool versionChanged;
+                    Entity entity = new(world, r.entity);
+                    if (!dataVersions.ContainsKey(entity))
                     {
-                        dataVersions.AddOrSet(entity, component.version);
+                        versionChanged = true;
                     }
                     else
                     {
-                        Trace.WriteLine($"Data request for `{entity}` with address `{component.address}` failed, data not found");
+                        versionChanged = dataVersions[entity] != component.version;
+                    }
+
+                    if (versionChanged)
+                    {
+                        Trace.WriteLine($"Searching for data at `{component.address}` for `{entity}`");
+                        if (TryLoad(entity, component.address, component.version))
+                        {
+                            dataVersions.AddOrSet(entity, component.version);
+                            component.status = RequestStatus.Loaded;
+                        }
+                        else
+                        {
+                            Trace.WriteLine($"Data request for `{entity}` with address `{component.address}` failed, data not found");
+                            component.status = RequestStatus.NotFound;
+                        }
                     }
                 }
             }
@@ -87,7 +95,7 @@ namespace Data.Systems
             }
         }
 
-        private readonly unsafe bool TryLoadDataOntoEntity(Entity entity, Address address, uint version)
+        private readonly unsafe bool TryLoad(Entity entity, Address address, uint version)
         {
             World world = entity.GetWorld();
             if (TryLoad(world, address, out BinaryReader newReader))
@@ -111,14 +119,14 @@ namespace Data.Systems
                 newReader.Dispose();
 
                 //increment data version
-                ref IsData data = ref entity.TryGetComponent<IsData>(out bool contains);
+                ref DatumComponent data = ref entity.TryGetComponent<DatumComponent>(out bool contains);
                 if (contains)
                 {
-                    selectedEntity.SetComponent(new IsData(version), schema);
+                    selectedEntity.SetComponent(new DatumComponent(version, address), schema);
                 }
                 else
                 {
-                    selectedEntity.AddComponent(new IsData(version), schema);
+                    selectedEntity.AddComponent(new DatumComponent(version, address), schema);
                 }
 
                 operations.Push(operation);
@@ -153,7 +161,7 @@ namespace Data.Systems
 
         private static bool TryLoadFromEmbeddedResources(Address address, out BinaryReader newReader)
         {
-            foreach (EmbeddedAddress embeddedResource in EmbeddedAddress.All)
+            foreach ((Assembly assembly, Address address) embeddedResource in EmbeddedResourceRegistry.All)
             {
                 if (embeddedResource.address.Matches(address))
                 {
@@ -173,11 +181,11 @@ namespace Data.Systems
 
         private static bool TryLoadFromWorld(World world, Address address, out BinaryReader newReader)
         {
-            ComponentQuery<IsDataSource> sourceQuery = new(world);
+            ComponentQuery<DatumComponent> sourceQuery = new(world);
             sourceQuery.ExcludeDisabled(true);
             foreach (var r in sourceQuery)
             {
-                ref IsDataSource source = ref r.component1;
+                ref DatumComponent source = ref r.component1;
                 if (source.address.Matches(address))
                 {
                     USpan<byte> fileData = world.GetArray<BinaryData>(r.entity).As<byte>();
