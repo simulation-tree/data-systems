@@ -1,27 +1,26 @@
 ﻿using Collections;
-using Data;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Unmanaged;
 using Worlds;
 
-namespace Requests.Systems.Tests
+namespace Data.Systems.Tests
 {
-    public class ImportTests : RequestSystemsTests
+    public class ImportTests : DataSystemTests
     {
         [Test, CancelAfter(1200)]
         public async Task ReadFromStaticFileSystem(CancellationToken cancellation)
         {
             const string FileName = "test.txt";
-            Datum file = new(world, FileName);
+            DataSource file = new(world, FileName);
             file.WriteUTF8("Hello, World!");
 
-            Request request = new(world, FileName);
+            DataRequest request = new(world, FileName);
 
-            await request.UntilLoaded(Simulate, cancellation);
+            await request.UntilCompliant(Simulate, cancellation);
 
-            using BinaryReader reader = new(request.GetBinaryData());
+            using BinaryReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
             USpan<char> span = buffer.AsSpan();
             uint length = reader.ReadUTF8(span);
@@ -34,15 +33,15 @@ namespace Requests.Systems.Tests
         {
             const string FileName = "tomato";
             string randomStr = Guid.NewGuid().ToString();
-            Datum file = new(world, FileName);
+            DataSource file = new(world, FileName);
             file.WriteUTF8(randomStr);
 
-            Request readTomato = new(world, FileName);
+            DataRequest readTomato = new(world, FileName);
 
-            await readTomato.UntilLoaded(Simulate, cancellation);
+            await readTomato.UntilCompliant(Simulate, cancellation);
 
-            Assert.That(readTomato.Is(), Is.True);
-            using BinaryReader reader = new(readTomato.GetBinaryData());
+            Assert.That(readTomato.IsCompliant, Is.True);
+            using BinaryReader reader = readTomato.CreateBinaryReader();
             USpan<char> buffer = stackalloc char[128];
             uint length = reader.ReadUTF8(buffer);
             USpan<char> text = buffer.Slice(0, length);
@@ -53,11 +52,11 @@ namespace Requests.Systems.Tests
         public async Task DontFindThis()
         {
             const string FileName = "tomato";
-            Request readTomato = new(world, FileName);
+            DataRequest readTomato = new(world, FileName);
             CancellationTokenSource cts = new(800);
             try
             {
-                await readTomato.UntilLoaded(Simulate, cts.Token);
+                await readTomato.UntilCompliant(Simulate, cts.Token);
                 Assert.Fail("Should not have found the file");
             }
             catch (Exception ex)
@@ -65,29 +64,29 @@ namespace Requests.Systems.Tests
                 Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
             }
 
-            Assert.That(readTomato.IsLoaded(), Is.False);
+            Assert.That(readTomato.IsLoaded, Is.False);
         }
 
         [Test, CancelAfter(5000)]
         public async Task FindFileWithWildcard(CancellationToken cancellation)
         {
-            Datum sourceMat = new(world, "Assets/Materials/unlit.mat");
+            DataSource sourceMat = new(world, "Assets/Materials/unlit.mat");
             sourceMat.WriteUTF8("material");
-            Datum sourceJson = new(world, "Assets/Materials/unlit.json");
+            DataSource sourceJson = new(world, "Assets/Materials/unlit.json");
             sourceJson.WriteUTF8("json");
-            Datum sourceShader = new(world, "Assets/Materials/unlit.shader");
+            DataSource sourceShader = new(world, "Assets/Materials/unlit.shader");
             sourceShader.WriteUTF8("shader");
-            Datum sourceTxt = new(world, "Assets/Materials/unlit.txt");
+            DataSource sourceTxt = new(world, "Assets/Materials/unlit.txt");
             sourceTxt.WriteUTF8("text");
 
-            Request matRequest = new(world, "*/unlit.mat");
-            Request anyShaderRequest = new(world, "*.shader");
+            DataRequest matRequest = new(world, "*/unlit.mat");
+            DataRequest anyShaderRequest = new(world, "*.shader");
 
-            await matRequest.UntilLoaded(Simulate, cancellation);
-            await anyShaderRequest.UntilLoaded(Simulate, cancellation);
+            await matRequest.UntilCompliant(Simulate, cancellation);
+            await anyShaderRequest.UntilCompliant(Simulate, cancellation);
 
-            using BinaryReader matReader = new(matRequest.GetBinaryData());
-            using BinaryReader shaderReader = new(anyShaderRequest.GetBinaryData());
+            using BinaryReader matReader = matRequest.CreateBinaryReader();
+            using BinaryReader shaderReader = anyShaderRequest.CreateBinaryReader();
             USpan<char> buffer = stackalloc char[128];
             uint length = matReader.ReadUTF8(buffer);
             Assert.That(buffer.Slice(0, length).ToString(), Is.EqualTo("material"));
@@ -100,11 +99,11 @@ namespace Requests.Systems.Tests
         public async Task LoadFromFileSystem(CancellationToken cancellation)
         {
             const string FileName = "Assets/TestData.txt";
-            Request request = new(world, FileName);
+            DataRequest request = new(world, FileName);
 
-            await request.UntilLoaded(Simulate, cancellation);
+            await request.UntilCompliant(Simulate, cancellation);
 
-            using BinaryReader reader = new(request.GetBinaryData());
+            using BinaryReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
             USpan<char> span = buffer.AsSpan();
             uint length = reader.ReadUTF8(span);
@@ -118,11 +117,11 @@ namespace Requests.Systems.Tests
             EmbeddedResourceRegistry.Register(GetType().Assembly, "Assets/EmbeddedTestData.txt");
 
             const string FileName = "*/EmbeddedTestData.txt";
-            Request request = new(world, FileName);
+            DataRequest request = new(world, FileName);
 
-            await request.UntilLoaded(Simulate, cancellation);
+            await request.UntilCompliant(Simulate, cancellation);
 
-            using BinaryReader reader = new(request.GetBinaryData());
+            using BinaryReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
             USpan<char> span = buffer.AsSpan();
             uint length = reader.ReadUTF8(span);
