@@ -222,9 +222,10 @@ namespace Data.Systems
         {
             ref DataImportSystem system = ref container.Read<DataImportSystem>();
             ref HandleDataRequest message = ref messageAllocation.Read<HandleDataRequest>();
-            if (system.TryLoad(message.entity, message.request.address, false))
+            Address address = new(message.address);
+            if (system.TryLoad(message.entity, address, false))
             {
-                message.request.status = RequestStatus.Loaded;
+                message = message.BecomeLoaded();
             }
 
             return true;
