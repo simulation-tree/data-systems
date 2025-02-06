@@ -40,51 +40,54 @@ namespace Data.Systems
 
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
-            ComponentQuery<IsDataRequest> requestQuery = new(world);
-            requestQuery.ExcludeDisabled(true);
-            foreach (var r in requestQuery)
+            ComponentType dataComponent = world.Schema.GetComponent<IsDataRequest>();
+            foreach (Chunk chunk in world.Chunks)
             {
-                ref IsDataRequest request = ref r.component1;
-                TryLoad(delta, new Entity(world, r.entity), ref request);
+                if (chunk.Definition.Contains(dataComponent))
+                {
+                    USpan<uint> entities = chunk.Entities;
+                    USpan<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(dataComponent);
+                    for (uint i = 0; i < chunk.Count; i++)
+                    {
+                        ref IsDataRequest request = ref components[i];
+                        Entity entity = new(world, entities[i]);
+                        if (request.status == RequestStatus.Submitted)
+                        {
+                            request.status = RequestStatus.Loading;
+                            Trace.WriteLine($"Started fetching data at `{request.address}` for `{entity}`");
+                        }
+
+                        if (request.status == RequestStatus.Loading)
+                        {
+                            ref LoadingTask task = ref tasks.TryGetValue(entity, out bool contains);
+                            if (!contains)
+                            {
+                                task = ref tasks.Add(entity, new LoadingTask(DateTime.UtcNow));
+                            }
+
+                            if (TryLoad(entity, request.address, true))
+                            {
+                                request.status = RequestStatus.Loaded;
+                            }
+                            else
+                            {
+                                task.duration += delta;
+                                if (task.duration >= request.timeout)
+                                {
+                                    request.status = RequestStatus.NotFound;
+                                    Trace.WriteLine($"Data request for `{entity}` with address `{request.address}` failed, data not found");
+                                }
+                                else
+                                {
+                                    //keep waiting
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             PerformInstructions(world);
-        }
-
-        private void TryLoad(TimeSpan delta, Entity entity, ref IsDataRequest request)
-        {
-            if (request.status == RequestStatus.Submitted)
-            {
-                request.status = RequestStatus.Loading;
-                Trace.WriteLine($"Started fetching data at `{request.address}` for `{entity}`");
-            }
-
-            if (request.status == RequestStatus.Loading)
-            {
-                ref LoadingTask task = ref tasks.TryGetValue(entity, out bool contains);
-                if (!contains)
-                {
-                    task = ref tasks.Add(entity, new LoadingTask(DateTime.UtcNow));
-                }
-
-                if (TryLoad(entity, request.address, true))
-                {
-                    request.status = RequestStatus.Loaded;
-                }
-                else
-                {
-                    task.duration += delta;
-                    if (task.duration >= request.timeout)
-                    {
-                        request.status = RequestStatus.NotFound;
-                        Trace.WriteLine($"Data request for `{entity}` with address `{request.address}` failed, data not found");
-                    }
-                    else
-                    {
-                        //keep waiting
-                    }
-                }
-            }
         }
 
         void ISystem.Finish(in SystemContainer systemContainer, in World world)
