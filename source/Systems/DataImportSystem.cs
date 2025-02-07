@@ -185,17 +185,25 @@ namespace Data.Systems
 
         private static bool TryLoadFromWorld(World world, Address address, out BinaryReader newReader)
         {
-            ComponentQuery<IsDataSource> sourceQuery = new(world);
-            sourceQuery.ExcludeDisabled(true);
-            foreach (var r in sourceQuery)
+            ComponentType sourceType = world.Schema.GetComponent<IsDataSource>();
+            foreach (Chunk chunk in world.Chunks)
             {
-                ref IsDataSource source = ref r.component1;
-                if (source.address.Matches(address))
+                if (chunk.Definition.Contains(sourceType))
                 {
-                    USpan<byte> fileData = world.GetArray<BinaryData>(r.entity).As<byte>();
-                    newReader = new(fileData);
-                    Trace.WriteLine($"Loaded data from entity `{r.entity}` for address `{source.address}`");
-                    return true;
+                    USpan<uint> entities = chunk.Entities;
+                    USpan<IsDataSource> components = chunk.GetComponents<IsDataSource>(sourceType);
+                    for (uint i = 0; i < entities.Length; i++)
+                    {
+                        ref IsDataSource source = ref components[i];
+                        if (source.address.Matches(address))
+                        {
+                            uint entity = entities[i];
+                            USpan<byte> fileData = world.GetArray<BinaryData>(entity).As<byte>();
+                            newReader = new(fileData);
+                            Trace.WriteLine($"Loaded data from entity `{entity}` for address `{source.address}`");
+                            return true;
+                        }
+                    }
                 }
             }
 
