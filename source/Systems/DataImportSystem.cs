@@ -108,7 +108,7 @@ namespace Data.Systems
         {
             while (operations.TryPop(out Operation operation))
             {
-                world.Perform(operation);
+                operation.Perform(world);
                 operation.Dispose();
             }
         }
@@ -118,24 +118,12 @@ namespace Data.Systems
             World world = entity.world;
             if (TryLoad(world, address, out BinaryReader newReader))
             {
-                Schema schema = world.Schema;
-                USpan<BinaryData> readData = newReader.GetBytes().As<BinaryData>();
+                USpan<byte> readData = newReader.GetBytes();
                 if (commitOperation)
                 {
                     Operation operation = new();
-                    Operation.SelectedEntity selectedEntity = operation.SelectEntity(entity);
-
-                    //load the bytes onto the entity
-                    if (!entity.ContainsArray<BinaryData>())
-                    {
-                        selectedEntity.CreateArray(readData, schema);
-                    }
-                    else
-                    {
-                        selectedEntity.ResizeArray<BinaryData>(readData.Length, schema);
-                        selectedEntity.SetArrayElements(0, readData, schema);
-                    }
-
+                    operation.SelectEntity(entity);
+                    operation.CreateOrSetArray(readData.As<BinaryData>());
                     operations.Push(operation);
                 }
                 else
@@ -143,11 +131,11 @@ namespace Data.Systems
                     if (entity.ContainsArray<BinaryData>())
                     {
                         USpan<BinaryData> existingArray = entity.ResizeArray<BinaryData>(readData.Length);
-                        readData.CopyTo(existingArray);
+                        readData.As<BinaryData>().CopyTo(existingArray);
                     }
                     else
                     {
-                        entity.CreateArray(readData);
+                        entity.CreateArray(readData.As<BinaryData>());
                     }
                 }
 
