@@ -204,16 +204,18 @@ namespace Data.Systems
         [UnmanagedCallersOnly]
         private static HandleMessage.Boolean HandleDataRequest(SystemContainer container, World world, Allocation messageAllocation)
         {
-            ref DataImportSystem system = ref container.Read<DataImportSystem>();
             ref LoadData message = ref messageAllocation.Read<LoadData>();
-            Address address = new(message.address);
-            if (TryLoad(message.entity.world, address, out BinaryReader newReader))
+            if (!message.IsLoaded)
             {
-                message = message.BecomeLoaded(newReader.GetBytes());
-                newReader.Dispose();
+                if (TryLoad(message.world, message.address, out BinaryReader newReader))
+                {
+                    message = message.BecomeLoaded(newReader.GetBytes());
+                    newReader.Dispose();
+                    return true;
+                }
             }
 
-            return true;
+            return false;
         }
     }
 }
