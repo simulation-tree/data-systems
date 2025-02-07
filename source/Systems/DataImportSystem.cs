@@ -24,7 +24,7 @@ namespace Data.Systems
 
         unsafe readonly uint ISystem.GetMessageHandlers(USpan<MessageHandler> handlers)
         {
-            handlers[0] = MessageHandler.Create<HandleDataRequest>(new(&HandleDataRequest));
+            handlers[0] = MessageHandler.Create<LoadData>(new(&HandleDataRequest));
             return 1;
         }
 
@@ -65,8 +65,9 @@ namespace Data.Systems
                                 task = ref tasks.Add(entity, new LoadingTask(DateTime.UtcNow));
                             }
 
-                            if (TryLoad(entity, request.address, true))
+                            if (TryLoad(entity, request.address, out Operation operation))
                             {
+                                operations.Push(operation);
                                 request.status = RequestStatus.Loaded;
                             }
                             else
@@ -113,37 +114,21 @@ namespace Data.Systems
             }
         }
 
-        private readonly unsafe bool TryLoad(Entity entity, Address address, bool commitOperation)
+        private static bool TryLoad(Entity entity, Address address, out Operation operation)
         {
             World world = entity.world;
             if (TryLoad(world, address, out BinaryReader newReader))
             {
                 USpan<byte> readData = newReader.GetBytes();
-                if (commitOperation)
-                {
-                    Operation operation = new();
-                    operation.SelectEntity(entity);
-                    operation.CreateOrSetArray(readData.As<BinaryData>());
-                    operations.Push(operation);
-                }
-                else
-                {
-                    if (entity.ContainsArray<BinaryData>())
-                    {
-                        USpan<BinaryData> existingArray = entity.ResizeArray<BinaryData>(readData.Length);
-                        readData.As<BinaryData>().CopyTo(existingArray);
-                    }
-                    else
-                    {
-                        entity.CreateArray(readData.As<BinaryData>());
-                    }
-                }
-
+                operation = new();
+                operation.SelectEntity(entity);
+                operation.CreateOrSetArray(readData.As<BinaryData>());
                 newReader.Dispose();
                 return true;
             }
             else
             {
+                operation = default;
                 return false;
             }
         }
@@ -220,11 +205,12 @@ namespace Data.Systems
         private static HandleMessage.Boolean HandleDataRequest(SystemContainer container, World world, Allocation messageAllocation)
         {
             ref DataImportSystem system = ref container.Read<DataImportSystem>();
-            ref HandleDataRequest message = ref messageAllocation.Read<HandleDataRequest>();
+            ref LoadData message = ref messageAllocation.Read<LoadData>();
             Address address = new(message.address);
-            if (system.TryLoad(message.entity, address, false))
+            if (TryLoad(message.entity.world, address, out BinaryReader newReader))
             {
-                message = message.BecomeLoaded();
+                message = message.BecomeLoaded(newReader.GetBytes());
+                newReader.Dispose();
             }
 
             return true;
