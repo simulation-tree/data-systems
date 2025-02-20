@@ -202,20 +202,24 @@ namespace Data.Systems
         }
 
         [UnmanagedCallersOnly]
-        private static HandleMessage.Boolean HandleDataRequest(SystemContainer container, World world, Allocation messageAllocation)
+        private static StatusCode HandleDataRequest(SystemContainer container, World world, Allocation messageAllocation)
         {
             ref LoadData message = ref messageAllocation.Read<LoadData>();
             if (!message.IsLoaded)
             {
                 if (TryLoad(message.world, message.address, out BinaryReader newReader))
                 {
-                    message = message.BecomeLoaded(newReader.GetBytes());
-                    newReader.Dispose();
-                    return true;
+                    message = message.BecomeLoaded(newReader);
+                    return StatusCode.Success(0);
+                }
+                else
+                {
+                    Trace.TraceError($"Failed to load data from address `{message.address}`, data not found");
+                    return StatusCode.Failure(0);
                 }
             }
 
-            return false;
+            return StatusCode.Continue;
         }
     }
 }
