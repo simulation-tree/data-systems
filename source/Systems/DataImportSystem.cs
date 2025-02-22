@@ -62,7 +62,8 @@ namespace Data.Systems
                             ref LoadingTask task = ref tasks.TryGetValue(entity, out bool contains);
                             if (!contains)
                             {
-                                task = ref tasks.Add(entity, new LoadingTask(DateTime.UtcNow));
+                                task = ref tasks.Add(entity);
+                                task = new(DateTime.UtcNow);
                             }
 
                             if (TryLoad(entity, request.address, out Operation operation))
