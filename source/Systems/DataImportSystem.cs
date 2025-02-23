@@ -118,7 +118,7 @@ namespace Data.Systems
         private static bool TryLoad(Entity entity, Address address, out Operation operation)
         {
             World world = entity.world;
-            if (TryLoad(world, address, out BinaryReader newReader))
+            if (TryLoad(world, address, out ByteReader newReader))
             {
                 USpan<byte> readData = newReader.GetBytes();
                 operation = new();
@@ -140,7 +140,7 @@ namespace Data.Systems
         /// The output <paramref name="newReader"/> must be disposed after completing its use.
         /// </para>
         /// </summary>
-        private static bool TryLoad(World world, Address address, out BinaryReader newReader)
+        private static bool TryLoad(World world, Address address, out ByteReader newReader)
         {
             if (EmbeddedResourceRegistry.TryGet(address, out EmbeddedResource embeddedResource))
             {
@@ -157,7 +157,7 @@ namespace Data.Systems
             return TryLoadFromFileSystem(address, out newReader);
         }
 
-        private static bool TryLoadFromWorld(World world, Address address, out BinaryReader newReader)
+        private static bool TryLoadFromWorld(World world, Address address, out ByteReader newReader)
         {
             ComponentType sourceType = world.Schema.GetComponent<IsDataSource>();
             foreach (Chunk chunk in world.Chunks)
@@ -185,7 +185,7 @@ namespace Data.Systems
             return false;
         }
 
-        private static bool TryLoadFromFileSystem(Address address, out BinaryReader newReader)
+        private static bool TryLoadFromFileSystem(Address address, out ByteReader newReader)
         {
             string addressStr = address.ToString();
             if (System.IO.File.Exists(addressStr))
@@ -208,7 +208,7 @@ namespace Data.Systems
             ref LoadData message = ref messageAllocation.Read<LoadData>();
             if (!message.IsLoaded)
             {
-                if (TryLoad(message.world, message.address, out BinaryReader newReader))
+                if (TryLoad(message.world, message.address, out ByteReader newReader))
                 {
                     message = message.BecomeLoaded(newReader);
                     return StatusCode.Success(0);

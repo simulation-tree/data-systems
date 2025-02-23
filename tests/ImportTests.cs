@@ -20,7 +20,7 @@ namespace Data.Systems.Tests
 
             await request.UntilCompliant(Simulate, cancellation);
 
-            using BinaryReader reader = request.CreateBinaryReader();
+            using ByteReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
             USpan<char> span = buffer.AsSpan();
             uint length = reader.ReadUTF8(span);
@@ -41,7 +41,7 @@ namespace Data.Systems.Tests
             await readTomato.UntilCompliant(Simulate, cancellation);
 
             Assert.That(readTomato.IsCompliant, Is.True);
-            using BinaryReader reader = readTomato.CreateBinaryReader();
+            using ByteReader reader = readTomato.CreateBinaryReader();
             USpan<char> buffer = stackalloc char[128];
             uint length = reader.ReadUTF8(buffer);
             USpan<char> text = buffer.Slice(0, length);
@@ -85,8 +85,8 @@ namespace Data.Systems.Tests
             await matRequest.UntilCompliant(Simulate, cancellation);
             await anyShaderRequest.UntilCompliant(Simulate, cancellation);
 
-            using BinaryReader matReader = matRequest.CreateBinaryReader();
-            using BinaryReader shaderReader = anyShaderRequest.CreateBinaryReader();
+            using ByteReader matReader = matRequest.CreateBinaryReader();
+            using ByteReader shaderReader = anyShaderRequest.CreateBinaryReader();
             USpan<char> buffer = stackalloc char[128];
             uint length = matReader.ReadUTF8(buffer);
             Assert.That(buffer.Slice(0, length).ToString(), Is.EqualTo("material"));
@@ -103,7 +103,7 @@ namespace Data.Systems.Tests
 
             await request.UntilCompliant(Simulate, cancellation);
 
-            using BinaryReader reader = request.CreateBinaryReader();
+            using ByteReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
             USpan<char> span = buffer.AsSpan();
             uint length = reader.ReadUTF8(span);
@@ -121,7 +121,7 @@ namespace Data.Systems.Tests
 
             await request.UntilCompliant(Simulate, cancellation);
 
-            using BinaryReader reader = request.CreateBinaryReader();
+            using ByteReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
             USpan<char> span = buffer.AsSpan();
             uint length = reader.ReadUTF8(span);
