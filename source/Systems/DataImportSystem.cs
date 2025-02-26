@@ -47,7 +47,7 @@ namespace Data.Systems
                 {
                     USpan<uint> entities = chunk.Entities;
                     USpan<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(dataComponent);
-                    for (uint i = 0; i < chunk.Count; i++)
+                    for (uint i = 0; i < entities.Length; i++)
                     {
                         ref IsDataRequest request = ref components[i];
                         Entity entity = new(world, entities[i]);
