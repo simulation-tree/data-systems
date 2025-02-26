@@ -1,4 +1,4 @@
-﻿using Collections;
+﻿using Collections.Generic;
 using Data.Components;
 using Data.Messages;
 using Simulation;
