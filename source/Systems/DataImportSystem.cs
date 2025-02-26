@@ -172,7 +172,7 @@ namespace Data.Systems
                         if (source.address.Matches(address))
                         {
                             uint entity = entities[i];
-                            USpan<byte> fileData = world.GetArray<BinaryData>(entity).As<byte>();
+                            USpan<byte> fileData = world.GetArray<BinaryData>(entity).AsSpan<byte>();
                             newReader = new(fileData);
                             Trace.WriteLine($"Loaded data from entity `{entity}` for address `{source.address}`");
                             return true;
