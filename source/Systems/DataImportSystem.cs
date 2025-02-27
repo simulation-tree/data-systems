@@ -40,10 +40,10 @@ namespace Data.Systems
 
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
-            ComponentType dataComponent = world.Schema.GetComponent<IsDataRequest>();
+            ComponentType dataComponent = world.Schema.GetComponentType<IsDataRequest>();
             foreach (Chunk chunk in world.Chunks)
             {
-                if (chunk.Definition.Contains(dataComponent))
+                if (chunk.Definition.ContainsComponent(dataComponent))
                 {
                     USpan<uint> entities = chunk.Entities;
                     USpan<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(dataComponent);
@@ -159,10 +159,10 @@ namespace Data.Systems
 
         private static bool TryLoadFromWorld(World world, Address address, out ByteReader newReader)
         {
-            ComponentType sourceType = world.Schema.GetComponent<IsDataSource>();
+            ComponentType sourceType = world.Schema.GetComponentType<IsDataSource>();
             foreach (Chunk chunk in world.Chunks)
             {
-                if (chunk.Definition.Contains(sourceType))
+                if (chunk.Definition.ContainsComponent(sourceType))
                 {
                     USpan<uint> entities = chunk.Entities;
                     USpan<IsDataSource> components = chunk.GetComponents<IsDataSource>(sourceType);
