@@ -202,7 +202,7 @@ namespace Data.Systems
         }
 
         [UnmanagedCallersOnly]
-        private static StatusCode HandleDataRequest(SystemContainer container, World world, Allocation messageAllocation)
+        private static StatusCode HandleDataRequest(SystemContainer container, World world, MemoryAddress messageAllocation)
         {
             ref LoadData message = ref messageAllocation.Read<LoadData>();
             if (!message.IsLoaded)
