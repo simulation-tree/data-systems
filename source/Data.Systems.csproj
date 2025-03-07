@@ -1,40 +1,41 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
-		<ImplicitUsings>disable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-		<Title>Data Systems</Title>
-		<Authors>popcron</Authors>
-		<Company>game-simulations</Company>
-		<RepositoryUrl>https://github.com/game-simulations/data-systems/</RepositoryUrl>
-		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Description>Loads requests</Description>
-		<GenerateDocumentationFile>True</GenerateDocumentationFile>
-		<IsAotCompatible>True</IsAotCompatible>
-		<IsTrimmable>True</IsTrimmable>
-		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-		<WarningLevel>8</WarningLevel>
-		<NoWarn>1701;1702;CS1591</NoWarn>
-	</PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+        <Title>Data Systems</Title>
+        <Authors>popcron</Authors>
+        <Company>game-simulations</Company>
+        <RepositoryUrl>https://github.com/game-simulations/data-systems</RepositoryUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Description>Loads requests</Description>
+        <GenerateDocumentationFile>True</GenerateDocumentationFile>
+        <IsAotCompatible>True</IsAotCompatible>
+        <IsTrimmable>True</IsTrimmable>
+        <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+        <WarningLevel>8</WarningLevel>
+        <NoWarn>1701;1702;CS1591</NoWarn>
+        <PackageId/>
+    </PropertyGroup>
 
-	<ItemGroup>
-		<None Include="..\README.md">
-			<Pack>True</Pack>
-			<PackagePath>\</PackagePath>
-		</None>
-	</ItemGroup>
+    <ItemGroup>
+        <None Include="..\README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\..\data\core\Data.Core.csproj" />
-		<ProjectReference Include="..\..\simulation\core\Simulation.Core.csproj" />
-		<ProjectReference Include="..\..\unmanaged\core\Unmanaged.Core.csproj" />
-		<ProjectReference Include="..\..\collections\source\Collections.csproj" />
-		<ProjectReference Include="..\..\simulation\generator\Simulation.Generator.csproj">
-			<OutputItemType>Analyzer</OutputItemType>
-			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-		</ProjectReference>
-	</ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\data\core\Data.Core.csproj"/>
+        <ProjectReference Include="..\..\simulation\core\Simulation.Core.csproj"/>
+        <ProjectReference Include="..\..\unmanaged\core\Unmanaged.Core.csproj"/>
+        <ProjectReference Include="..\..\collections\source\Collections.csproj"/>
+        <ProjectReference Include="..\..\simulation\generator\Simulation.Generator.csproj">
+            <OutputItemType>Analyzer</OutputItemType>
+            <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+        </ProjectReference>
+    </ItemGroup>
 
 </Project>
