@@ -7,8 +7,8 @@
         <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
         <Title>Data Systems</Title>
         <Authors>popcron</Authors>
-        <Company>game-simulations</Company>
-        <RepositoryUrl>https://github.com/game-simulations/data-systems</RepositoryUrl>
+        <Company>simulation-tree</Company>
+        <RepositoryUrl>https://github.com/simulation-tree/data-systems</RepositoryUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Description>Loads requests</Description>
         <GenerateDocumentationFile>True</GenerateDocumentationFile>
