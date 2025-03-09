@@ -21,7 +21,7 @@ namespace Data.Systems
             this.operations = operations;
         }
 
-        unsafe readonly uint ISystem.GetMessageHandlers(USpan<MessageHandler> handlers)
+        unsafe readonly int ISystem.GetMessageHandlers(Span<MessageHandler> handlers)
         {
             handlers[0] = MessageHandler.Create<LoadData>(new(&HandleDataRequest));
             return 1;
@@ -44,9 +44,9 @@ namespace Data.Systems
             {
                 if (chunk.Definition.ContainsComponent(dataComponent))
                 {
-                    USpan<uint> entities = chunk.Entities;
-                    USpan<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(dataComponent);
-                    for (uint i = 0; i < entities.Length; i++)
+                    ReadOnlySpan<uint> entities = chunk.Entities;
+                    Span<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(dataComponent);
+                    for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsDataRequest request = ref components[i];
                         Entity entity = new(world, entities[i]);
@@ -119,10 +119,10 @@ namespace Data.Systems
             World world = entity.world;
             if (TryLoad(world, address, out ByteReader newReader))
             {
-                USpan<byte> readData = newReader.GetBytes();
+                Span<byte> readData = newReader.GetBytes();
                 operation = new();
                 operation.SelectEntity(entity);
-                operation.CreateOrSetArray(readData.As<BinaryData>());
+                operation.CreateOrSetArray(readData.As<byte, BinaryData>());
                 newReader.Dispose();
                 return true;
             }
@@ -163,15 +163,15 @@ namespace Data.Systems
             {
                 if (chunk.Definition.ContainsComponent(sourceType))
                 {
-                    USpan<uint> entities = chunk.Entities;
-                    USpan<IsDataSource> components = chunk.GetComponents<IsDataSource>(sourceType);
-                    for (uint i = 0; i < entities.Length; i++)
+                    ReadOnlySpan<uint> entities = chunk.Entities;
+                    Span<IsDataSource> components = chunk.GetComponents<IsDataSource>(sourceType);
+                    for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsDataSource source = ref components[i];
                         if (source.address.Matches(address))
                         {
                             uint entity = entities[i];
-                            USpan<byte> fileData = world.GetArray<BinaryData>(entity).AsSpan<byte>();
+                            Span<byte> fileData = world.GetArray<BinaryData>(entity).AsSpan<byte>();
                             newReader = new(fileData);
                             Trace.WriteLine($"Loaded data from entity `{entity}` for address `{source.address}`");
                             return true;

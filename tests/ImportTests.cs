@@ -22,9 +22,9 @@ namespace Data.Systems.Tests
 
             using ByteReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
-            USpan<char> span = buffer.AsSpan();
-            uint length = reader.ReadUTF8(span);
-            USpan<char> fileText = span.Slice(0, length);
+            Span<char> span = buffer.AsSpan();
+            int length = reader.ReadUTF8(span);
+            Span<char> fileText = span.Slice(0, length);
             Assert.That(fileText.ToString(), Is.EqualTo("Hello, World!"));
         }
 
@@ -42,9 +42,9 @@ namespace Data.Systems.Tests
 
             Assert.That(readTomato.IsCompliant, Is.True);
             using ByteReader reader = readTomato.CreateBinaryReader();
-            USpan<char> buffer = stackalloc char[128];
-            uint length = reader.ReadUTF8(buffer);
-            USpan<char> text = buffer.Slice(0, length);
+            Span<char> buffer = stackalloc char[128];
+            int length = reader.ReadUTF8(buffer);
+            Span<char> text = buffer.Slice(0, length);
             Assert.That(text.ToString(), Is.EqualTo(randomStr));
         }
 
@@ -87,8 +87,8 @@ namespace Data.Systems.Tests
 
             using ByteReader matReader = matRequest.CreateBinaryReader();
             using ByteReader shaderReader = anyShaderRequest.CreateBinaryReader();
-            USpan<char> buffer = stackalloc char[128];
-            uint length = matReader.ReadUTF8(buffer);
+            Span<char> buffer = stackalloc char[128];
+            int length = matReader.ReadUTF8(buffer);
             Assert.That(buffer.Slice(0, length).ToString(), Is.EqualTo("material"));
 
             length = shaderReader.ReadUTF8(buffer);
@@ -105,9 +105,9 @@ namespace Data.Systems.Tests
 
             using ByteReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
-            USpan<char> span = buffer.AsSpan();
-            uint length = reader.ReadUTF8(span);
-            USpan<char> fileText = span.Slice(0, length);
+            Span<char> span = buffer.AsSpan();
+            int length = reader.ReadUTF8(span);
+            Span<char> fileText = span.Slice(0, length);
             Assert.That(fileText.ToString(), Contains.Substring("abacus"));
         }
 
@@ -123,9 +123,9 @@ namespace Data.Systems.Tests
 
             using ByteReader reader = request.CreateBinaryReader();
             using Array<char> buffer = new(reader.Length);
-            USpan<char> span = buffer.AsSpan();
-            uint length = reader.ReadUTF8(span);
-            USpan<char> fileText = span.Slice(0, length);
+            Span<char> span = buffer.AsSpan();
+            int length = reader.ReadUTF8(span);
+            Span<char> fileText = span.Slice(0, length);
             Assert.That(fileText.ToString(), Contains.Substring("i am an embedded resource"));
         }
     }
