@@ -13,7 +13,7 @@ Request request = new(world, "fileA");
 simulator.Update();
 
 using BinaryReader reader = new(request.GetBinaryData());
-USpan<char> dataBuffer = stackalloc char[32];
+Span<char> dataBuffer = stackalloc char[32];
 uint textLength = reader.ReadUTF8Span(dataBuffer);
 string loadedData = dataBuffer.Slice(0, textLength).ToString();
 Console.WriteLine($"Loaded data from an entity {loadedData}");
@@ -27,7 +27,7 @@ Request request = new(world, "C:/fileB.txt");
 simulator.Update();
 
 using BinaryReader reader = new(request.GetBinaryData());
-USpan<char> dataBuffer = stackalloc char[32];
+Span<char> dataBuffer = stackalloc char[32];
 uint textLength = reader.ReadUTF8Span(dataBuffer);
 string loadedData = dataBuffer.Slice(0, textLength).ToString();
 Console.WriteLine($"Loaded data from a file {loadedData}");
@@ -51,7 +51,7 @@ Request request = new(world, "Assets/test.txt");
 simulator.Update();
 
 using BinaryReader reader = new(request.GetBinaryData());
-USpan<char> dataBuffer = stackalloc char[32];
+Span<char> dataBuffer = stackalloc char[32];
 uint textLength = reader.ReadUTF8Span(dataBuffer);
 string loadedData = dataBuffer.Slice(0, textLength).ToString();
 Console.WriteLine($"Loaded data from an embedded resource {loadedData}");
