@@ -14,7 +14,7 @@ namespace Data.Systems.Tests
         protected override void SetUp()
         {
             base.SetUp();
-            simulator.AddSystem<DataImportSystem>();
+            simulator.AddSystem(new DataImportSystem());
         }
 
         protected override Schema CreateSchema()

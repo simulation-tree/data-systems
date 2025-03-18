@@ -2,6 +2,7 @@
 using Data.Components;
 using Data.Messages;
 using Simulation;
+using Simulation.Functions;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -15,37 +16,41 @@ namespace Data.Systems
         private readonly Dictionary<Entity, LoadingTask> tasks;
         private readonly Stack<Operation> operations;
 
-        private DataImportSystem(Dictionary<Entity, LoadingTask> tasks, Stack<Operation> operations)
+        public DataImportSystem()
         {
-            this.tasks = tasks;
-            this.operations = operations;
+            tasks = new(4);
+            operations = new(4);
         }
 
-        unsafe readonly int ISystem.GetMessageHandlers(Span<MessageHandler> handlers)
+        public readonly void Dispose()
         {
-            handlers[0] = MessageHandler.Create<LoadData>(new(&HandleDataRequest));
-            return 1;
-        }
-
-        void ISystem.Start(in SystemContainer systemContainer, in World world)
-        {
-            if (systemContainer.World == world)
+            while (operations.TryPop(out Operation operation))
             {
-                Dictionary<Entity, LoadingTask> tasks = new();
-                Stack<Operation> operations = new();
-                systemContainer.Write(new DataImportSystem(tasks, operations));
+                operation.Dispose();
             }
+
+            operations.Dispose();
+            tasks.Dispose();
         }
 
-        void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
+        unsafe readonly void ISystem.CollectMessageHandlers(MessageHandlerCollector collectors)
         {
-            ComponentType dataComponent = world.Schema.GetComponentType<IsDataRequest>();
+            collectors.Add<LoadData>(&HandleDataRequest);
+        }
+
+        void ISystem.Start(in SystemContext context, in World world)
+        {
+        }
+
+        void ISystem.Update(in SystemContext context, in World world, in TimeSpan delta)
+        {
+            int dataComponent = world.Schema.GetComponentType<IsDataRequest>();
             foreach (Chunk chunk in world.Chunks)
             {
                 if (chunk.Definition.ContainsComponent(dataComponent))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
-                    Span<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(dataComponent);
+                    ComponentEnumerator<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(dataComponent);
                     for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsDataRequest request = ref components[i];
@@ -91,18 +96,8 @@ namespace Data.Systems
             PerformInstructions(world);
         }
 
-        void ISystem.Finish(in SystemContainer systemContainer, in World world)
+        void ISystem.Finish(in SystemContext context, in World world)
         {
-            if (systemContainer.World == world)
-            {
-                while (operations.TryPop(out Operation operation))
-                {
-                    operation.Dispose();
-                }
-
-                operations.Dispose();
-                tasks.Dispose();
-            }
         }
 
         private readonly void PerformInstructions(World world)
@@ -158,13 +153,13 @@ namespace Data.Systems
 
         private static bool TryLoadFromWorld(World world, Address address, out ByteReader newReader)
         {
-            ComponentType sourceType = world.Schema.GetComponentType<IsDataSource>();
+            int sourceType = world.Schema.GetComponentType<IsDataSource>();
             foreach (Chunk chunk in world.Chunks)
             {
                 if (chunk.Definition.ContainsComponent(sourceType))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
-                    Span<IsDataSource> components = chunk.GetComponents<IsDataSource>(sourceType);
+                    ComponentEnumerator<IsDataSource> components = chunk.GetComponents<IsDataSource>(sourceType);
                     for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsDataSource source = ref components[i];
@@ -202,9 +197,9 @@ namespace Data.Systems
         }
 
         [UnmanagedCallersOnly]
-        private static StatusCode HandleDataRequest(SystemContainer container, World world, MemoryAddress messageAllocation)
+        private static StatusCode HandleDataRequest(HandleMessage.Input input)
         {
-            ref LoadData message = ref messageAllocation.Read<LoadData>();
+            ref LoadData message = ref input.ReadMessage<LoadData>();
             if (!message.IsLoaded)
             {
                 if (TryLoad(message.world, message.address, out ByteReader newReader))
