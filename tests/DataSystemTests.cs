@@ -8,7 +8,7 @@ namespace Data.Systems.Tests
     {
         static DataSystemTests()
         {
-            MetadataRegistry.Load<DataTypeBank>();
+            MetadataRegistry.Load<DataMetadataBank>();
         }
 
         protected override void SetUp()
