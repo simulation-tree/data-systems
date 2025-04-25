@@ -44,7 +44,9 @@ namespace Data.Systems
 
         void ISystem.Update(in SystemContext context, in World world, in TimeSpan delta)
         {
-            int dataComponent = world.Schema.GetComponentType<IsDataRequest>();
+            Schema schema = world.Schema;
+            int dataComponent = schema.GetComponentType<IsDataRequest>();
+            int sourceType = schema.GetComponentType<IsDataSource>();
             foreach (Chunk chunk in world.Chunks)
             {
                 if (chunk.Definition.ContainsComponent(dataComponent))
@@ -55,7 +57,7 @@ namespace Data.Systems
                     {
                         ref IsDataRequest request = ref components[i];
                         Entity entity = new(world, entities[i]);
-                        if (request.status == RequestStatus.Submitted)
+                        if (request.status == RequestStatus.Awaiting)
                         {
                             request.status = RequestStatus.Loading;
                             Trace.WriteLine($"Started fetching data at `{request.address}` for `{entity}`");
@@ -70,7 +72,7 @@ namespace Data.Systems
                                 task = new(DateTime.UtcNow);
                             }
 
-                            if (TryLoad(entity, request.address, out Operation operation))
+                            if (TryLoad(entity, request.address, sourceType, out Operation operation))
                             {
                                 operations.Push(operation);
                                 request.status = RequestStatus.Loaded;
@@ -109,10 +111,10 @@ namespace Data.Systems
             }
         }
 
-        private static bool TryLoad(Entity entity, Address address, out Operation operation)
+        private static bool TryLoad(Entity entity, Address address, int sourceType, out Operation operation)
         {
             World world = entity.world;
-            if (TryLoad(world, address, out ByteReader newReader))
+            if (TryLoad(world, address, sourceType, out ByteReader newReader))
             {
                 Span<byte> readData = newReader.GetBytes();
                 operation = new();
@@ -134,16 +136,16 @@ namespace Data.Systems
         /// The output <paramref name="newReader"/> must be disposed after completing its use.
         /// </para>
         /// </summary>
-        private static bool TryLoad(World world, Address address, out ByteReader newReader)
+        private static bool TryLoad(World world, Address address, int sourceType, out ByteReader newReader)
         {
             if (EmbeddedResourceRegistry.TryGet(address, out EmbeddedResource embeddedResource))
             {
                 Trace.WriteLine($"Loaded data from embedded resource at `{address}`");
-                newReader = embeddedResource.CreateBinaryReader();
+                newReader = embeddedResource.CreateByteReader();
                 return true;
             }
 
-            if (TryLoadFromWorld(world, address, out newReader))
+            if (TryLoadFromWorld(world, address, sourceType, out newReader))
             {
                 return true;
             }
@@ -151,9 +153,8 @@ namespace Data.Systems
             return TryLoadFromFileSystem(address, out newReader);
         }
 
-        private static bool TryLoadFromWorld(World world, Address address, out ByteReader newReader)
+        private static bool TryLoadFromWorld(World world, Address address, int sourceType, out ByteReader newReader)
         {
-            int sourceType = world.Schema.GetComponentType<IsDataSource>();
             foreach (Chunk chunk in world.Chunks)
             {
                 if (chunk.Definition.ContainsComponent(sourceType))
@@ -202,7 +203,8 @@ namespace Data.Systems
             ref LoadData message = ref input.ReadMessage<LoadData>();
             if (!message.IsLoaded)
             {
-                if (TryLoad(message.world, message.address, out ByteReader newReader))
+                int sourceType = message.world.Schema.GetComponentType<IsDataSource>();
+                if (TryLoad(message.world, message.address, sourceType, out ByteReader newReader))
                 {
                     message.BecomeLoaded(newReader);
                     return StatusCode.Success(0);

@@ -2,7 +2,7 @@
 
 namespace Data.Systems
 {
-    public struct LoadingTask
+    internal struct LoadingTask
     {
         public readonly DateTime startTime;
         public TimeSpan duration;
