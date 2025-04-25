@@ -204,7 +204,7 @@ namespace Data.Systems
             {
                 if (TryLoad(message.world, message.address, out ByteReader newReader))
                 {
-                    message = message.BecomeLoaded(newReader);
+                    message.BecomeLoaded(newReader);
                     return StatusCode.Success(0);
                 }
                 else
