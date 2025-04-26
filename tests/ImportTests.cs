@@ -1,4 +1,5 @@
 ﻿using Collections.Generic;
+using Data.Components;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,6 +65,7 @@ namespace Data.Systems.Tests
             }
 
             Assert.That(readTomato.IsLoaded, Is.False);
+            Assert.That(readTomato.IsCompliant, Is.False);
         }
 
         [Test, CancelAfter(5000)]
