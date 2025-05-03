@@ -57,7 +57,7 @@ namespace Data.Systems
                     {
                         ref IsDataRequest request = ref components[i];
                         Entity entity = new(world, entities[i]);
-                        if (request.status == RequestStatus.Awaiting)
+                        if (request.status == RequestStatus.Submitted)
                         {
                             request.status = RequestStatus.Loading;
                             Trace.WriteLine($"Started fetching data at `{request.address}` for `{entity}`");
