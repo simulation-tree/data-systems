@@ -18,7 +18,7 @@ namespace Data.Systems.Tests
 
             DataRequest request = new(world, FileName);
 
-            await request.UntilCompliant(Update);
+            await request.UntilCompliant(Simulator.Update);
 
             using ByteReader reader = request.CreateByteReader();
             using Array<char> buffer = new(reader.Length);
@@ -38,7 +38,7 @@ namespace Data.Systems.Tests
 
             DataRequest readTomato = new(world, FileName);
 
-            await readTomato.UntilCompliant(Update, cancellation);
+            await readTomato.UntilCompliant(Simulator.Update, cancellation);
 
             Assert.That(readTomato.IsCompliant, Is.True);
             using ByteReader reader = readTomato.CreateByteReader();
@@ -56,7 +56,7 @@ namespace Data.Systems.Tests
             CancellationTokenSource cts = new(800);
             try
             {
-                await readTomato.UntilCompliant(Update, cts.Token);
+                await readTomato.UntilCompliant(Simulator.Update, cts.Token);
                 Assert.Fail("Should not have found the file");
             }
             catch (Exception ex)
@@ -83,8 +83,8 @@ namespace Data.Systems.Tests
             DataRequest matRequest = new(world, "*/unlit.mat");
             DataRequest anyShaderRequest = new(world, "*.shader");
 
-            await matRequest.UntilCompliant(Update, cancellation);
-            await anyShaderRequest.UntilCompliant(Update, cancellation);
+            await matRequest.UntilCompliant(Simulator.Update, cancellation);
+            await anyShaderRequest.UntilCompliant(Simulator.Update, cancellation);
 
             using ByteReader matReader = matRequest.CreateByteReader();
             using ByteReader shaderReader = anyShaderRequest.CreateByteReader();
@@ -102,7 +102,7 @@ namespace Data.Systems.Tests
             const string FileName = "Assets/TestData.txt";
             DataRequest request = new(world, FileName);
 
-            await request.UntilCompliant(Update, cancellation);
+            await request.UntilCompliant(Simulator.Update, cancellation);
 
             using ByteReader reader = request.CreateByteReader();
             using Array<char> buffer = new(reader.Length);
@@ -120,7 +120,7 @@ namespace Data.Systems.Tests
             const string FileName = "*/EmbeddedTestData.txt";
             DataRequest request = new(world, FileName);
 
-            await request.UntilCompliant(Update, cancellation);
+            await request.UntilCompliant(Simulator.Update, cancellation);
 
             using ByteReader reader = request.CreateByteReader();
             using Array<char> buffer = new(reader.Length);
@@ -139,7 +139,7 @@ namespace Data.Systems.Tests
             file.WriteUTF8(randomStr);
 
             LoadData loadData = new(world, FileName);
-            Broadcast(ref loadData);
+            Simulator.Broadcast(ref loadData);
             Assert.That(loadData.status == RequestStatus.Loaded);
             bool consumed = loadData.TryConsume(out ByteReader byteReader);
             Assert.That(consumed, Is.True);

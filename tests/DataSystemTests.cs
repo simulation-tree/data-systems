@@ -14,12 +14,12 @@ namespace Data.Systems.Tests
         protected override void SetUp()
         {
             base.SetUp();
-            simulator.Add(new DataImportSystem());
+            Simulator.Add(new DataImportSystem());
         }
 
         protected override void TearDown()
         {
-            simulator.Remove<DataImportSystem>();
+            Simulator.Remove<DataImportSystem>();
             base.TearDown();
         }
 
