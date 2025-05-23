@@ -2,16 +2,14 @@
 using Data.Components;
 using Data.Messages;
 using Simulation;
-using Simulation.Functions;
 using System;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using Unmanaged;
 using Worlds;
 
 namespace Data.Systems
 {
-    public readonly partial struct DataImportSystem : ISystem
+    public partial class DataImportSystem : ISystem, IDisposable, IListener<LoadData>
     {
         private readonly Dictionary<Entity, LoadingTask> tasks;
         private readonly Stack<Operation> operations;
@@ -22,7 +20,7 @@ namespace Data.Systems
             operations = new(4);
         }
 
-        public readonly void Dispose()
+        public void Dispose()
         {
             while (operations.TryPop(out Operation operation))
             {
@@ -33,17 +31,9 @@ namespace Data.Systems
             tasks.Dispose();
         }
 
-        unsafe readonly void ISystem.CollectMessageHandlers(MessageHandlerCollector collectors)
+        void ISystem.Update(Simulator simulator, double deltaTime)
         {
-            collectors.Add<LoadData>(&HandleDataRequest);
-        }
-
-        void ISystem.Start(in SystemContext context, in World world)
-        {
-        }
-
-        void ISystem.Update(in SystemContext context, in World world, in TimeSpan delta)
-        {
+            World world = simulator.world;
             Schema schema = world.Schema;
             int dataComponent = schema.GetComponentType<IsDataRequest>();
             int sourceType = schema.GetComponentType<IsDataSource>();
@@ -79,7 +69,7 @@ namespace Data.Systems
                             }
                             else
                             {
-                                task.duration += delta;
+                                task.duration += deltaTime;
                                 if (task.duration >= request.timeout)
                                 {
                                     request.status = RequestStatus.NotFound;
@@ -98,11 +88,28 @@ namespace Data.Systems
             PerformInstructions(world);
         }
 
-        void ISystem.Finish(in SystemContext context, in World world)
+        void IListener<LoadData>.Receive(ref LoadData request)
         {
+            if (request.status == RequestStatus.Uninitialized)
+            {
+                request.status = RequestStatus.Loading;
+            }
+
+            if (request.status == RequestStatus.Loading)
+            {
+                int sourceType = request.world.Schema.GetComponentType<IsDataSource>();
+                if (TryLoad(request.world, request.address, sourceType, out ByteReader newReader))
+                {
+                    request.Load(newReader);
+                }
+                else
+                {
+                    request.NotFound();
+                }
+            }
         }
 
-        private readonly void PerformInstructions(World world)
+        private void PerformInstructions(World world)
         {
             while (operations.TryPop(out Operation operation))
             {
@@ -119,7 +126,7 @@ namespace Data.Systems
                 Span<byte> readData = newReader.GetBytes();
                 operation = new();
                 operation.SelectEntity(entity);
-                operation.CreateOrSetArray(readData.As<byte, BinaryData>());
+                operation.CreateOrSetArray(readData.As<byte, DataByte>());
                 newReader.Dispose();
                 return true;
             }
@@ -167,7 +174,7 @@ namespace Data.Systems
                         if (source.address.Matches(address))
                         {
                             uint entity = entities[i];
-                            Span<byte> fileData = world.GetArray<BinaryData>(entity).AsSpan<byte>();
+                            Span<byte> fileData = world.GetArray<DataByte>(entity).AsSpan<byte>();
                             newReader = new(fileData);
                             Trace.WriteLine($"Loaded data from entity `{entity}` for address `{source.address}`");
                             return true;
@@ -195,28 +202,6 @@ namespace Data.Systems
                 newReader = default;
                 return false;
             }
-        }
-
-        [UnmanagedCallersOnly]
-        private static StatusCode HandleDataRequest(HandleMessage.Input input)
-        {
-            ref LoadData message = ref input.ReadMessage<LoadData>();
-            if (!message.IsLoaded)
-            {
-                int sourceType = message.world.Schema.GetComponentType<IsDataSource>();
-                if (TryLoad(message.world, message.address, sourceType, out ByteReader newReader))
-                {
-                    message.BecomeLoaded(newReader);
-                    return StatusCode.Success(0);
-                }
-                else
-                {
-                    Trace.TraceError($"Failed to load data from address `{message.address}`, data not found");
-                    return StatusCode.Failure(0);
-                }
-            }
-
-            return StatusCode.Continue;
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿using Collections.Generic;
-using Data.Components;
+using Data.Messages;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -128,6 +128,27 @@ namespace Data.Systems.Tests
             int length = reader.ReadUTF8(span);
             Span<char> fileText = span.Slice(0, length);
             Assert.That(fileText.ToString(), Contains.Substring("i am an embedded resource"));
+        }
+
+        [Test]
+        public void LoadWithMessage()
+        {
+            const string FileName = "tomato";
+            string randomStr = Guid.NewGuid().ToString();
+            DataSource file = new(world, FileName);
+            file.WriteUTF8(randomStr);
+
+            LoadData loadData = new(world, FileName);
+            Broadcast(ref loadData);
+            Assert.That(loadData.status == RequestStatus.Loaded);
+            bool consumed = loadData.TryConsume(out ByteReader byteReader);
+            Assert.That(consumed, Is.True);
+            Assert.That(loadData.status == RequestStatus.Consumed);
+            Span<char> buffer = stackalloc char[128];
+            int length = byteReader.ReadUTF8(buffer);
+            Span<char> text = buffer.Slice(0, length);
+            Assert.That(text.ToString(), Is.EqualTo(randomStr));
+            byteReader.Dispose();
         }
     }
 }

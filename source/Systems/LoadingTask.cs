@@ -5,7 +5,7 @@ namespace Data.Systems
     internal struct LoadingTask
     {
         public readonly DateTime startTime;
-        public TimeSpan duration;
+        public double duration;
 
         [Obsolete("Default constructor not supported", true)]
         public LoadingTask()
