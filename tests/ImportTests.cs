@@ -140,10 +140,10 @@ namespace Data.Systems.Tests
 
             LoadData loadData = new(world, FileName);
             Simulator.Broadcast(ref loadData);
-            Assert.That(loadData.status == RequestStatus.Loaded);
+            Assert.That(loadData.IsFound);
             bool consumed = loadData.TryConsume(out ByteReader byteReader);
             Assert.That(consumed, Is.True);
-            Assert.That(loadData.status == RequestStatus.Consumed);
+            Assert.That(loadData.IsConsumed);
             Span<char> buffer = stackalloc char[128];
             int length = byteReader.ReadUTF8(buffer);
             Span<char> text = buffer.Slice(0, length);

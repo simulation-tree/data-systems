@@ -11,28 +11,25 @@ namespace Data.Systems
 {
     public partial class DataImportSystem : ISystem, IDisposable, IListener<LoadData>
     {
-        private readonly Dictionary<Entity, LoadingTask> tasks;
-        private readonly Stack<Operation> operations;
+        private readonly Dictionary<uint, LoadingTask> tasks;
+        private readonly Operation operation;
+        private double time;
 
         public DataImportSystem()
         {
             tasks = new(4);
-            operations = new(4);
+            operation = new();
         }
 
         public void Dispose()
         {
-            while (operations.TryPop(out Operation operation))
-            {
-                operation.Dispose();
-            }
-
-            operations.Dispose();
+            operation.Dispose();
             tasks.Dispose();
         }
 
         void ISystem.Update(Simulator simulator, double deltaTime)
         {
+            time += deltaTime;
             World world = simulator.world;
             Schema schema = world.Schema;
             int dataComponent = schema.GetComponentType<IsDataRequest>();
@@ -46,7 +43,7 @@ namespace Data.Systems
                     for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsDataRequest request = ref components[i];
-                        Entity entity = new(world, entities[i]);
+                        uint entity = entities[i];
                         if (request.status == RequestStatus.Submitted)
                         {
                             request.status = RequestStatus.Loading;
@@ -59,12 +56,11 @@ namespace Data.Systems
                             if (!contains)
                             {
                                 task = ref tasks.Add(entity);
-                                task = new(DateTime.UtcNow);
+                                task = new(time);
                             }
 
-                            if (TryLoad(entity, request.address, sourceType, out Operation operation))
+                            if (TryLoad(world, entity, request.address, sourceType, operation))
                             {
-                                operations.Push(operation);
                                 request.status = RequestStatus.Loaded;
                             }
                             else
@@ -85,54 +81,38 @@ namespace Data.Systems
                 }
             }
 
-            PerformInstructions(world);
+            if (operation.Count > 0)
+            {
+                operation.Perform(world);
+                operation.Reset();
+            }
         }
 
         void IListener<LoadData>.Receive(ref LoadData request)
         {
-            if (request.status == RequestStatus.Uninitialized)
+            int sourceType = request.world.Schema.GetComponentType<IsDataSource>();
+            if (TryLoad(request.world, request.address, sourceType, out ByteReader newReader))
             {
-                request.status = RequestStatus.Loading;
+                request.Found(newReader);
             }
-
-            if (request.status == RequestStatus.Loading)
+            else
             {
-                int sourceType = request.world.Schema.GetComponentType<IsDataSource>();
-                if (TryLoad(request.world, request.address, sourceType, out ByteReader newReader))
-                {
-                    request.Load(newReader);
-                }
-                else
-                {
-                    request.NotFound();
-                }
+                request.NotFound();
             }
         }
 
-        private void PerformInstructions(World world)
+        private static bool TryLoad(World world, uint entity, Address address, int sourceType, Operation operation)
         {
-            while (operations.TryPop(out Operation operation))
-            {
-                operation.Perform(world);
-                operation.Dispose();
-            }
-        }
-
-        private static bool TryLoad(Entity entity, Address address, int sourceType, out Operation operation)
-        {
-            World world = entity.world;
             if (TryLoad(world, address, sourceType, out ByteReader newReader))
             {
                 Span<byte> readData = newReader.GetBytes();
-                operation = new();
-                operation.SelectEntity(entity);
+                operation.SetSelectedEntity(entity);
                 operation.CreateOrSetArray(readData.As<byte, DataByte>());
                 newReader.Dispose();
                 return true;
             }
             else
             {
-                operation = default;
                 return false;
             }
         }

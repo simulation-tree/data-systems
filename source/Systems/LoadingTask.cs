@@ -4,7 +4,7 @@ namespace Data.Systems
 {
     internal struct LoadingTask
     {
-        public readonly DateTime startTime;
+        public readonly double startTime;
         public double duration;
 
         [Obsolete("Default constructor not supported", true)]
@@ -13,9 +13,10 @@ namespace Data.Systems
             throw new NotSupportedException();
         }
 
-        public LoadingTask(DateTime startTime)
+        public LoadingTask(double startTime)
         {
             this.startTime = startTime;
+            duration = 0;
         }
     }
 }
