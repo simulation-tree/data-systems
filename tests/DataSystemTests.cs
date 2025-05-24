@@ -14,7 +14,7 @@ namespace Data.Systems.Tests
         protected override void SetUp()
         {
             base.SetUp();
-            Simulator.Add(new DataImportSystem());
+            Simulator.Add(new DataImportSystem(Simulator));
         }
 
         protected override void TearDown()

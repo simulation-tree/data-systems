@@ -13,12 +13,19 @@ namespace Data.Systems
     {
         private readonly Dictionary<uint, LoadingTask> tasks;
         private readonly Operation operation;
+        private readonly int dataComponent;
+        private readonly int sourceType;
         private double time;
 
-        public DataImportSystem()
+        public DataImportSystem(Simulator simulator)
         {
             tasks = new(4);
             operation = new();
+
+            World world = simulator.world;
+            Schema schema = world.Schema;
+            dataComponent = schema.GetComponentType<IsDataRequest>();
+            sourceType = schema.GetComponentType<IsDataSource>();
         }
 
         public void Dispose()
@@ -32,8 +39,6 @@ namespace Data.Systems
             time += deltaTime;
             World world = simulator.world;
             Schema schema = world.Schema;
-            int dataComponent = schema.GetComponentType<IsDataRequest>();
-            int sourceType = schema.GetComponentType<IsDataSource>();
             foreach (Chunk chunk in world.Chunks)
             {
                 if (chunk.Definition.ContainsComponent(dataComponent))
@@ -90,7 +95,6 @@ namespace Data.Systems
 
         void IListener<LoadData>.Receive(ref LoadData request)
         {
-            int sourceType = request.world.Schema.GetComponentType<IsDataSource>();
             if (TryLoad(request.world, request.address, sourceType, out ByteReader newReader))
             {
                 request.Found(newReader);
