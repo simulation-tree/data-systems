@@ -4,47 +4,51 @@ using Data.Messages;
 using Simulation;
 using System;
 using System.Diagnostics;
+using System.IO;
 using Unmanaged;
 using Worlds;
 
 namespace Data.Systems
 {
-    public partial class DataImportSystem : ISystem, IDisposable, IListener<LoadData>
+    public sealed partial class DataImportSystem : SystemBase, IListener<DataUpdate>, IListener<LoadData>
     {
+        private readonly World world;
         private readonly Dictionary<uint, LoadingTask> tasks;
         private readonly Operation operation;
-        private readonly int dataComponent;
+        private readonly int requestType;
         private readonly int sourceType;
+        private readonly int byteArrayType;
         private double time;
 
-        public DataImportSystem(Simulator simulator)
+        public DataImportSystem(Simulator simulator, World world) : base(simulator)
         {
+            this.world = world;
             tasks = new(4);
-            operation = new();
+            operation = new(world);
 
-            World world = simulator.world;
             Schema schema = world.Schema;
-            dataComponent = schema.GetComponentType<IsDataRequest>();
+            requestType = schema.GetComponentType<IsDataRequest>();
             sourceType = schema.GetComponentType<IsDataSource>();
+            byteArrayType = schema.GetArrayType<DataByte>();
         }
 
-        public void Dispose()
+        public override void Dispose()
         {
             operation.Dispose();
             tasks.Dispose();
         }
 
-        void ISystem.Update(Simulator simulator, double deltaTime)
+        void IListener<DataUpdate>.Receive(ref DataUpdate message)
         {
-            time += deltaTime;
-            World world = simulator.world;
-            Schema schema = world.Schema;
-            foreach (Chunk chunk in world.Chunks)
+            time += message.deltaTime;
+            ReadOnlySpan<Chunk> chunks = world.Chunks;
+            for (int c = 0; c < chunks.Length; c++)
             {
-                if (chunk.Definition.ContainsComponent(dataComponent))
+                Chunk chunk = chunks[c];
+                if (chunk.Definition.ContainsComponent(requestType))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
-                    ComponentEnumerator<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(dataComponent);
+                    ComponentEnumerator<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(requestType);
                     for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsDataRequest request = ref components[i];
@@ -64,13 +68,13 @@ namespace Data.Systems
                                 task = new(time);
                             }
 
-                            if (TryLoad(world, entity, request.address, sourceType, operation))
+                            if (TryLoad(entity, request.address))
                             {
                                 request.status = RequestStatus.Loaded;
                             }
                             else
                             {
-                                task.duration += deltaTime;
+                                task.duration += message.deltaTime;
                                 if (task.duration >= request.timeout)
                                 {
                                     request.status = RequestStatus.NotFound;
@@ -86,16 +90,15 @@ namespace Data.Systems
                 }
             }
 
-            if (operation.Count > 0)
+            if (operation.TryPerform())
             {
-                operation.Perform(world);
                 operation.Reset();
             }
         }
 
         void IListener<LoadData>.Receive(ref LoadData request)
         {
-            if (TryLoad(request.world, request.address, sourceType, out ByteReader newReader))
+            if (TryLoad(request.address, out ByteReader newReader))
             {
                 request.Found(newReader);
             }
@@ -105,13 +108,13 @@ namespace Data.Systems
             }
         }
 
-        private static bool TryLoad(World world, uint entity, Address address, int sourceType, Operation operation)
+        private bool TryLoad(uint entity, Address address)
         {
-            if (TryLoad(world, address, sourceType, out ByteReader newReader))
+            if (TryLoad(address, out ByteReader newReader))
             {
                 Span<byte> readData = newReader.GetBytes();
                 operation.SetSelectedEntity(entity);
-                operation.CreateOrSetArray(readData.As<byte, DataByte>());
+                operation.CreateOrSetArray(readData.As<byte, DataByte>(), byteArrayType);
                 newReader.Dispose();
                 return true;
             }
@@ -127,7 +130,7 @@ namespace Data.Systems
         /// The output <paramref name="newReader"/> must be disposed after completing its use.
         /// </para>
         /// </summary>
-        private static bool TryLoad(World world, Address address, int sourceType, out ByteReader newReader)
+        private bool TryLoad(Address address, out ByteReader newReader)
         {
             if (EmbeddedResourceRegistry.TryGet(address, out EmbeddedResource embeddedResource))
             {
@@ -136,7 +139,7 @@ namespace Data.Systems
                 return true;
             }
 
-            if (TryLoadFromWorld(world, address, sourceType, out newReader))
+            if (TryLoadFromWorld(address, out newReader))
             {
                 return true;
             }
@@ -144,10 +147,12 @@ namespace Data.Systems
             return TryLoadFromFileSystem(address, out newReader);
         }
 
-        private static bool TryLoadFromWorld(World world, Address address, int sourceType, out ByteReader newReader)
+        private bool TryLoadFromWorld(Address address, out ByteReader newReader)
         {
-            foreach (Chunk chunk in world.Chunks)
+            ReadOnlySpan<Chunk> chunks = world.Chunks;
+            for (int c = 0; c < chunks.Length; c++)
             {
+                Chunk chunk = chunks[c];
                 if (chunk.Definition.ContainsComponent(sourceType))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
@@ -158,7 +163,7 @@ namespace Data.Systems
                         if (source.address.Matches(address))
                         {
                             uint entity = entities[i];
-                            Span<byte> fileData = world.GetArray<DataByte>(entity).AsSpan<byte>();
+                            Span<byte> fileData = world.GetArray<DataByte>(entity, byteArrayType).AsSpan<byte>();
                             newReader = new(fileData);
                             Trace.WriteLine($"Loaded data from entity `{entity}` for address `{source.address}`");
                             return true;
@@ -174,9 +179,9 @@ namespace Data.Systems
         private static bool TryLoadFromFileSystem(Address address, out ByteReader newReader)
         {
             string addressStr = address.ToString();
-            if (System.IO.File.Exists(addressStr))
+            if (File.Exists(addressStr))
             {
-                using System.IO.FileStream fileStream = new(addressStr, System.IO.FileMode.Open, System.IO.FileAccess.Read);
+                using FileStream fileStream = new(addressStr, FileMode.Open, FileAccess.Read);
                 newReader = new(fileStream);
                 Trace.WriteLine($"Loaded data from file system at `{addressStr}`");
                 return true;
