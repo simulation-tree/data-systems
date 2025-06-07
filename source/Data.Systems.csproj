@@ -41,9 +41,9 @@
 
   <ItemGroup>
     <Content Include="bin/Debug/net9.0/Data.Systems.dll" Pack="true" PackagePath="tools/debug/Data.Systems.dll" Visible="false"/>
-    <Content Include="bin/Debug/net9.0/Data.Systems.xml" Pack="true" PackagePath="tools/debug/Data.Systems.xml" Visible="false"/>
+    <Content Include="bin/Debug/net9.0/Data.Systems.xml" Pack="true" PackagePath="tools/debug/Data.Systems.xml" Visible="false" Condition="Exists('bin/Debug/net9.0/Data.Systems.xml')"/>
     <Content Include="bin/Release/net9.0/Data.Systems.dll" Pack="true" PackagePath="tools/release/Data.Systems.dll" Visible="false"/>
-    <Content Include="bin/Release/net9.0/Data.Systems.xml" Pack="true" PackagePath="tools/release/Data.Systems.xml" Visible="false"/>
+    <Content Include="bin/Release/net9.0/Data.Systems.xml" Pack="true" PackagePath="tools/release/Data.Systems.xml" Visible="false" Condition="Exists('bin/Release/net9.0/Data.Systems.xml')"/>
     <Content Include="build/Data.Systems.targets" Pack="true" PackagePath="build/Data.Systems.targets" Visible="false"/>
   </ItemGroup>
 
