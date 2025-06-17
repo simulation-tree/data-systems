@@ -53,12 +53,15 @@ namespace Data.Systems
                     {
                         ref IsDataRequest request = ref components[i];
                         uint entity = entities[i];
+
+                        //start loading this request
                         if (request.status == RequestStatus.Submitted)
                         {
                             request.status = RequestStatus.Loading;
                             Trace.WriteLine($"Started fetching data at `{request.address}` for `{entity}`");
                         }
 
+                        //process the request
                         if (request.status == RequestStatus.Loading)
                         {
                             ref LoadingTask task = ref tasks.TryGetValue(entity, out bool contains);
@@ -70,7 +73,9 @@ namespace Data.Systems
 
                             if (TryLoad(entity, request.address))
                             {
+                                //finished loading
                                 request.status = RequestStatus.Loaded;
+                                task.duration = 0;
                             }
                             else
                             {
