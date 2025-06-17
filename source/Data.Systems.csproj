@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -10,7 +10,7 @@
     <Company>simulation-tree</Company>
     <RepositoryUrl>https://github.com/simulation-tree/data-systems</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Description>Loads requests</Description>
+    <Description>Handles loading data</Description>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <IsAotCompatible>True</IsAotCompatible>
     <IsTrimmable>True</IsTrimmable>
