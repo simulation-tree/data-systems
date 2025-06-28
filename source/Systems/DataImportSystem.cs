@@ -119,7 +119,7 @@ namespace Data.Systems
             {
                 Span<byte> readData = newReader.GetBytes();
                 operation.SetSelectedEntity(entity);
-                operation.CreateOrSetArray(readData.As<byte, DataByte>(), byteArrayType);
+                operation.CreateOrSetArray(readData, byteArrayType);
                 newReader.Dispose();
                 return true;
             }
@@ -168,7 +168,7 @@ namespace Data.Systems
                         if (source.address.Matches(address))
                         {
                             uint entity = entities[i];
-                            Span<byte> fileData = world.GetArray<DataByte>(entity, byteArrayType).AsSpan<byte>();
+                            Span<byte> fileData = world.GetArray<byte>(entity, byteArrayType);
                             newReader = new(fileData);
                             Trace.WriteLine($"Loaded data from entity `{entity}` for address `{source.address}`");
                             return true;
