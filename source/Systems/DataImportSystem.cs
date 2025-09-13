@@ -45,7 +45,7 @@ namespace Data.Systems
             for (int c = 0; c < chunks.Length; c++)
             {
                 Chunk chunk = chunks[c];
-                if (chunk.Definition.ContainsComponent(requestType))
+                if (chunk.componentTypes.Contains(requestType))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
                     ComponentEnumerator<IsDataRequest> components = chunk.GetComponents<IsDataRequest>(requestType);
@@ -158,7 +158,7 @@ namespace Data.Systems
             for (int c = 0; c < chunks.Length; c++)
             {
                 Chunk chunk = chunks[c];
-                if (chunk.Definition.ContainsComponent(sourceType))
+                if (chunk.componentTypes.Contains(sourceType))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
                     ComponentEnumerator<IsDataSource> components = chunk.GetComponents<IsDataSource>(sourceType);
