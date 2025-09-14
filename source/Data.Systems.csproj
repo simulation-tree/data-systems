@@ -19,6 +19,7 @@
     <NoWarn>1701;1702;CS1591</NoWarn>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <OutDir>bin/$(TargetFramework)/$(Configuration)</OutDir>
+    <PackageId>SimulationTree.Data.Systems</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

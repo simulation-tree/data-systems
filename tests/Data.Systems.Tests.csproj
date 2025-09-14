@@ -7,6 +7,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <PackageId>SimulationTree.Data.Systems.Tests</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
