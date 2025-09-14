@@ -7,7 +7,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <Title>Data Systems</Title>
     <Authors>popcron</Authors>
-    <Company>simulation-tree</Company>
+    <Company>Simulation Tree</Company>
     <RepositoryUrl>https://github.com/simulation-tree/data-systems</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>Handles loading data</Description>
